@@ -1,0 +1,19 @@
+# Gradle and Kotlin
+.gradle/
+.kotlin/
+build/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+/local.properties
+captures/
+
+# Signing keys never go into the repository (see README)
+/keystore/
+*.jks
+*.keystore
+
+# OS files
+.DS_Store
+Thumbs.db

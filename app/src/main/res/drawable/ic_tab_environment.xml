@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Three sliders: the dish settings. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M3.5,6H20.5M3.5,12H20.5M3.5,18H20.5"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M5.4,6A2.6,2.6 0,1 1,10.6 6A2.6,2.6 0,1 1,5.4 6Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M13.4,12A2.6,2.6 0,1 1,18.6 12A2.6,2.6 0,1 1,13.4 12Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8.4,18A2.6,2.6 0,1 1,13.6 18A2.6,2.6 0,1 1,8.4 18Z" />
+</vector>

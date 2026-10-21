@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed (single colour) launcher icon: the same dish without fills that would merge. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M28,54A26,26 0,1 1,80 54A26,26 0,1 1,28 54Z"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FFFFFFFF" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M39,49A8,8 0,1 1,55 49A8,8 0,1 1,39 49Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M55.5,52A6.5,6.5 0,1 1,68.5 52A6.5,6.5 0,1 1,55.5 52Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M46,63A7,7 0,1 1,60 63A7,7 0,1 1,46 63Z" />
+</vector>

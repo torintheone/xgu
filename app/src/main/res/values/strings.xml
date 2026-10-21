@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- app_name is generated from petri.appName in gradle.properties. -->
+
+    <string name="tab_microscope">Микроскоп</string>
+    <string name="tab_genome">Геном</string>
+    <string name="tab_environment">Среда</string>
+    <string name="tab_genbank">Генбанк</string>
+
+    <string name="stat_age">Возраст</string>
+    <string name="stat_cells">Клетки</string>
+    <string name="stat_food">Пища</string>
+    <string name="hours_value">%1$s h</string>
+
+    <string name="time_freeze">Заморозка</string>
+    <string name="time_observe">Наблюдение</string>
+    <string name="time_incubate">Инкубация</string>
+
+    <string name="placeholder_genome">Редактор генома появится на этапе 3.</string>
+    <string name="placeholder_environment">Настройки среды появятся вместе с пищей и светом на этапе 2.</string>
+    <string name="placeholder_genbank">Генбанк появится на этапе 3.</string>
+    <string name="version_label">%1$s %2$s</string>
+</resources>

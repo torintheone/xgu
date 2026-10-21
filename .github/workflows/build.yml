@@ -1,0 +1,108 @@
+# Builds and tests on every push; a v* tag (for example v0.1.0) also publishes a GitHub Release with the APK.
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Read the app name and version
+        run: |
+          APP_NAME="$(sed -n 's/^petri\.appName=//p' gradle.properties)"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            echo "PETRI_GRADLE_ARGS=-Ppetri.version=$VERSION" >> "$GITHUB_ENV"
+          else
+            VERSION="$(sed -n 's/^petri\.version=//p' gradle.properties)"
+          fi
+          echo "APP_NAME=$APP_NAME" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "$APP_NAME $VERSION"
+
+      - name: Prepare the signing key
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/release.jks"
+            echo "PETRI_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Ключ подписи найден: APK будет подписан постоянным ключом."
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Нет ключа подписи::Секреты KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS и KEY_PASSWORD не заданы. APK подписан временным debug-ключом и не установится поверх предыдущей версии. Как создать ключ — в README."
+          fi
+
+      - name: Test and build the APK
+        env:
+          PETRI_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          PETRI_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          PETRI_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew --stacktrace $PETRI_GRADLE_ARGS :sim:test :app:releaseApk
+
+      - name: Check that the APK has no native code
+        run: |
+          for APK in app/build/dist/*.apk; do
+            if unzip -Z1 "$APK" | grep -q '^lib/'; then
+              echo "::error::В $APK есть папка lib/ с нативными библиотеками, а по ТЗ их быть не должно:"
+              unzip -Z1 "$APK" | grep '^lib/'
+              exit 1
+            fi
+            echo "OK: в $APK нет папки lib/ ($(du -h "$APK" | cut -f1))"
+          done
+
+      - name: Keep the APK as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: app/build/dist/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SIGNED: ${{ steps.signing.outputs.signed }}
+        run: |
+          NOTES="$RUNNER_TEMP/notes.md"
+          # The release notes are this version's section of CHANGELOG.md.
+          awk -v ver="$VERSION" '
+            /^## / { if (found) exit; if (index($0, "## " ver " ") == 1 || $0 == "## " ver) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > "$NOTES"
+          if [ "$SIGNED" != "true" ]; then
+            printf '\n> Эта сборка подписана временным ключом: поверх предыдущей версии она не установится. Как настроить постоянный ключ — в README.\n' >> "$NOTES"
+          fi
+          printf '\nКак установить: откройте эту страницу на телефоне, скачайте файл .apk ниже и откройте его. Подробно — в README.\n' >> "$NOTES"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" app/build/dist/*.apk --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" app/build/dist/*.apk --title "$APP_NAME $VERSION" --notes-file "$NOTES" --verify-tag
+          fi
