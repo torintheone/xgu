@@ -15,11 +15,14 @@ enum class TimeMode {
     INCUBATE,
 }
 
-/** Numbers for the status panel. Replaced as a whole, never mutated, so any thread may read them. */
+/** Numbers for the status panel and the diagnostics card. Replaced as a whole, never mutated, so any thread may read them. */
 data class SimStats(
     val ageHours: Double,
     val cellCount: Int,
     val foodCount: Int,
+    val speciesCount: Int = 0,
+    /** The cell under diagnostics, or null when none is selected or it has died. */
+    val selected: CellInfo? = null,
 ) {
     companion object {
         val EMPTY = SimStats(ageHours = 0.0, cellCount = 0, foodCount = 0)
@@ -65,6 +68,20 @@ class SimulationRunner(private val world: World) : AutoCloseable {
     /** Called on the simulation thread after each new snapshot, e.g. to request a redraw. */
     @Volatile
     var publishListener: (() -> Unit)? = null
+
+    /** The cell whose details go into [SimStats.selected]; 0 for none. */
+    @Volatile
+    var selectedUid: Int = 0
+        set(value) {
+            field = value
+            wake()
+        }
+
+    /** The population graph, refreshed whenever the world records a new point. */
+    @Volatile
+    var history: List<PopulationHistory.Sample> = emptyList()
+        private set
+    private var historyStamp = -1L
 
     fun start() {
         check(thread == null) { "SimulationRunner is already started" }
@@ -152,7 +169,18 @@ class SimulationRunner(private val world: World) : AutoCloseable {
     private fun publish() {
         world.writeSnapshot(snapshots.back())
         snapshots.publish()
-        stats = SimStats(world.ageHours, world.cellCount, world.foodCount)
+        stats = SimStats(
+            ageHours = world.ageHours,
+            cellCount = world.cellCount,
+            foodCount = world.foodCount,
+            speciesCount = world.speciesCount,
+            selected = world.cellInfo(selectedUid),
+        )
+        val stamp = world.history.size * 1_000_003L + world.stepCount / World.HISTORY_STEPS
+        if (stamp != historyStamp) {
+            historyStamp = stamp
+            history = world.history.samples()
+        }
         publishListener?.invoke()
     }
 

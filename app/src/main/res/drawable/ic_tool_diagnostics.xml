@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A magnifying glass over a cell nucleus. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M10.5,3.5a6.5,6.5 0,1 1,0 13a6.5,6.5 0,1 1,0 -13zM15.2,15.2L20.5,20.5"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10.5,8.5a1.5,1.5 0,1 1,0 3a1.5,1.5 0,1 1,0 -3z" />
+</vector>

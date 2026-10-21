@@ -10,14 +10,54 @@
     <string name="stat_age">Возраст</string>
     <string name="stat_cells">Клетки</string>
     <string name="stat_food">Пища</string>
+    <string name="stat_species">Виды</string>
     <string name="hours_value">%1$s h</string>
 
     <string name="time_freeze">Заморозка</string>
     <string name="time_observe">Наблюдение</string>
     <string name="time_incubate">Инкубация</string>
 
+    <string name="tool_synthesizer">Синтезатор</string>
+    <string name="tool_tweezers">Пинцет</string>
+    <string name="tool_feed">Подкормка</string>
+    <string name="tool_delete">Удаление</string>
+    <string name="tool_diagnostics">Диагностика</string>
+
+    <string name="diagnostics_title">M%1$d · %2$s</string>
+    <string name="close">Закрыть</string>
+    <string name="diag_mass">Масса</string>
+    <string name="mass_value">%1$s нг</string>
+    <string name="diag_nitrates">Нитраты</string>
+    <string name="diag_bonds">Связи</string>
+    <string name="diag_signals">S1 %1$s · S2 %2$s · S3 %3$s · S4 %4$s</string>
+    <string name="diag_genome">Геном №%1$d, предок №%2$d</string>
+    <string name="diag_follow">Следить</string>
+    <string name="diag_copy_genome">Копировать геном</string>
+
+    <!-- Cell type names in CellType order. -->
+    <string-array name="cell_types">
+        <item>Фагоцит</item>
+        <item>Фотоцит</item>
+        <item>Флагеллоцит</item>
+        <item>Девороцит</item>
+        <item>Липоцит</item>
+        <item>Кератиноцит</item>
+        <item>Буйоцит</item>
+        <item>Глюоцит</item>
+        <item>Нитроцит</item>
+        <item>Сенсоцит</item>
+        <item>Стереоцит</item>
+        <item>Миоцит</item>
+        <item>Нейроцит</item>
+        <item>Стемоцит</item>
+        <item>Секроцит</item>
+        <item>Вироцит</item>
+        <item>Гамета</item>
+        <item>Цилиоцит</item>
+    </string-array>
+
     <string name="placeholder_genome">Редактор генома появится на этапе 3.</string>
-    <string name="placeholder_environment">Настройки среды появятся вместе с пищей и светом на этапе 2.</string>
+    <string name="placeholder_environment">Настройки среды появятся на этапе 4.</string>
     <string name="placeholder_genbank">Генбанк появится на этапе 3.</string>
     <string name="version_label">%1$s %2$s</string>
 </resources>

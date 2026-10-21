@@ -3,47 +3,90 @@ package io.github.torintheone.petri.render
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import io.github.torintheone.petri.sim.SimulationRunner
+import io.github.torintheone.petri.sim.WorldSnapshot
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
- * Draws the dish: the dark culture medium and the glass wall around it.
- * The dish is one quad; the fragment shader shapes the circle, so its edge stays smooth at any zoom.
+ * Draws the dish from the latest simulation snapshot: medium and light, food, bonds, then cells.
+ * All cells go out in one instanced draw call; their look is computed in the fragment shader (see [Shaders]).
  */
 class DishRenderer(
     private val runner: SimulationRunner,
     private val camera: DishCamera,
 ) : GLSurfaceView.Renderer {
     private val viewProjection = FloatArray(9)
-    private var program = 0
-    private var quadArray = 0
-    private var viewProjectionLocation = -1
-    private var radiusLocation = -1
-    private var backgroundLocation = -1
+
+    private var dishProgram = 0
+    private var foodProgram = 0
+    private var bondProgram = 0
+    private var cellProgram = 0
+
+    private var dishArray = 0
+    private var foodArray = 0
+    private var bondArray = 0
+    private var cellArray = 0
+    private var foodBuffer = 0
+    private var bondBuffer = 0
+    private var cellBuffer = 0
+
+    private var foodData = floats(256)
+    private var bondData = floats(256)
+    private var cellData = floats(256)
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        program = GlPrograms.build(VERTEX_SHADER, FRAGMENT_SHADER)
-        viewProjectionLocation = GLES30.glGetUniformLocation(program, "uViewProjection")
-        radiusLocation = GLES30.glGetUniformLocation(program, "uRadius")
-        backgroundLocation = GLES30.glGetUniformLocation(program, "uBackground")
+        dishProgram = GlPrograms.build(Shaders.DISH_VERTEX, Shaders.DISH_FRAGMENT)
+        foodProgram = GlPrograms.build(Shaders.FOOD_VERTEX, Shaders.FOOD_FRAGMENT)
+        bondProgram = GlPrograms.build(Shaders.BOND_VERTEX, Shaders.BOND_FRAGMENT)
+        cellProgram = GlPrograms.build(Shaders.CELL_VERTEX, Shaders.CELL_FRAGMENT)
 
-        val ids = IntArray(1)
-        GLES30.glGenVertexArrays(1, ids, 0)
-        quadArray = ids[0]
-        GLES30.glBindVertexArray(quadArray)
-        GLES30.glGenBuffers(1, ids, 0)
-        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, ids[0])
+        val ids = IntArray(4)
+        GLES30.glGenVertexArrays(4, ids, 0)
+        dishArray = ids[0]
+        foodArray = ids[1]
+        bondArray = ids[2]
+        cellArray = ids[3]
+        GLES30.glGenBuffers(4, ids, 0)
+        val quadBuffer = ids[0]
+        foodBuffer = ids[1]
+        bondBuffer = ids[2]
+        cellBuffer = ids[3]
+
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, quadBuffer)
         GLES30.glBufferData(
             GLES30.GL_ARRAY_BUFFER,
-            QUAD_CORNERS.size * Float.SIZE_BYTES,
-            GlPrograms.floatBuffer(QUAD_CORNERS),
+            QUADS.size * Float.SIZE_BYTES,
+            GlPrograms.floatBuffer(QUADS),
             GLES30.GL_STATIC_DRAW,
         )
-        GLES30.glEnableVertexAttribArray(CORNER_ATTRIBUTE)
-        GLES30.glVertexAttribPointer(CORNER_ATTRIBUTE, 2, GLES30.GL_FLOAT, false, 2 * Float.SIZE_BYTES, 0)
+
+        // Dish and cells use the centred quad, bonds the one that runs from 0 to 1 along the bond.
+        GLES30.glBindVertexArray(dishArray)
+        bindQuad(quadBuffer, CENTRED_QUAD)
+        GLES30.glBindVertexArray(cellArray)
+        bindQuad(quadBuffer, CENTRED_QUAD)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, cellBuffer)
+        instanced(1, 4, WorldSnapshot.CELL_FLOATS, 0)
+        instanced(2, 3, WorldSnapshot.CELL_FLOATS, 4)
+        instanced(3, 4, WorldSnapshot.CELL_FLOATS, 7)
+        GLES30.glBindVertexArray(bondArray)
+        bindQuad(quadBuffer, SEGMENT_QUAD)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, bondBuffer)
+        instanced(1, 4, WorldSnapshot.BOND_FLOATS, 0)
+        instanced(2, 1, WorldSnapshot.BOND_FLOATS, 4)
+        GLES30.glBindVertexArray(foodArray)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, foodBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        GLES30.glVertexAttribPointer(0, 4, GLES30.GL_FLOAT, false, WorldSnapshot.FOOD_FLOATS * Float.SIZE_BYTES, 0)
         GLES30.glBindVertexArray(0)
 
         GLES30.glClearColor(BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 1f)
+        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -54,83 +97,135 @@ class DishRenderer(
     override fun onDrawFrame(gl: GL10?) {
         val snapshot = runner.latestSnapshot()
         camera.setDishRadius(snapshot.dishRadius)
+        val selected = selectedIndex(snapshot, runner.selectedUid)
+        if (selected >= 0 && camera.followUid != 0 && camera.followUid == snapshot.cellUids[selected]) {
+            val o = selected * WorldSnapshot.CELL_FLOATS
+            camera.centerOn(snapshot.cells[o], snapshot.cells[o + 1])
+        }
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
         if (!camera.viewProjection(viewProjection)) return
+        val pixelsPerUnit = camera.pixelsPerUnit()
 
-        GLES30.glUseProgram(program)
-        GLES30.glUniformMatrix3fv(viewProjectionLocation, 1, false, viewProjection, 0)
-        GLES30.glUniform1f(radiusLocation, snapshot.dishRadius)
-        GLES30.glUniform3fv(backgroundLocation, 1, BACKGROUND, 0)
-        GLES30.glBindVertexArray(quadArray)
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, QUAD_CORNERS.size / 2)
+        drawDish(snapshot)
+        GLES30.glEnable(GLES30.GL_BLEND)
+        drawFood(snapshot, pixelsPerUnit)
+        drawBonds(snapshot, pixelsPerUnit)
+        drawCells(snapshot, pixelsPerUnit, selected)
+        GLES30.glDisable(GLES30.GL_BLEND)
         GLES30.glBindVertexArray(0)
     }
 
+    private fun drawDish(snapshot: WorldSnapshot) {
+        val radius = snapshot.dishRadius
+        GLES30.glUseProgram(dishProgram)
+        GLES30.glUniformMatrix3fv(uniform(dishProgram, "uViewProjection"), 1, false, viewProjection, 0)
+        GLES30.glUniform1f(uniform(dishProgram, "uRadius"), radius)
+        GLES30.glUniform3fv(uniform(dishProgram, "uBackground"), 1, BACKGROUND, 0)
+        GLES30.glUniform2f(uniform(dishProgram, "uLightSource"), cos(snapshot.lightAngle), sin(snapshot.lightAngle))
+        GLES30.glUniform1f(uniform(dishProgram, "uLightBrightness"), snapshot.lightBrightness)
+        GLES30.glUniform1f(uniform(dishProgram, "uLightSigma"), if (radius > 0f) snapshot.lightSigma / radius else 0f)
+        GLES30.glBindVertexArray(dishArray)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    }
+
+    private fun drawFood(snapshot: WorldSnapshot, pixelsPerUnit: Float) {
+        val count = snapshot.foodCount
+        if (count == 0) return
+        foodData = upload(foodBuffer, foodData, snapshot.food, count * WorldSnapshot.FOOD_FLOATS)
+        GLES30.glUseProgram(foodProgram)
+        GLES30.glUniformMatrix3fv(uniform(foodProgram, "uViewProjection"), 1, false, viewProjection, 0)
+        GLES30.glUniform1f(uniform(foodProgram, "uPixelsPerUnit"), pixelsPerUnit)
+        GLES30.glBindVertexArray(foodArray)
+        GLES30.glDrawArrays(GLES30.GL_POINTS, 0, count)
+    }
+
+    private fun drawBonds(snapshot: WorldSnapshot, pixelsPerUnit: Float) {
+        val count = snapshot.bondCount
+        if (count == 0) return
+        bondData = upload(bondBuffer, bondData, snapshot.bonds, count * WorldSnapshot.BOND_FLOATS)
+        GLES30.glUseProgram(bondProgram)
+        GLES30.glUniformMatrix3fv(uniform(bondProgram, "uViewProjection"), 1, false, viewProjection, 0)
+        GLES30.glUniform1f(uniform(bondProgram, "uPixelsPerUnit"), pixelsPerUnit)
+        GLES30.glBindVertexArray(bondArray)
+        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, count)
+    }
+
+    private fun drawCells(snapshot: WorldSnapshot, pixelsPerUnit: Float, selected: Int) {
+        val count = snapshot.cellCount
+        if (count == 0) return
+        val floats = count * WorldSnapshot.CELL_FLOATS
+        cellData = ensure(cellData, floats)
+        cellData.clear()
+        cellData.put(snapshot.cells, 0, floats)
+        if (selected >= 0) {
+            val flagsAt = selected * WorldSnapshot.CELL_FLOATS + FLAGS_OFFSET
+            cellData.put(flagsAt, snapshot.cells[flagsAt] + SELECTED_FLAG)
+        }
+        cellData.flip()
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, cellBuffer)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, floats * Float.SIZE_BYTES, cellData, GLES30.GL_STREAM_DRAW)
+        GLES30.glUseProgram(cellProgram)
+        GLES30.glUniformMatrix3fv(uniform(cellProgram, "uViewProjection"), 1, false, viewProjection, 0)
+        GLES30.glUniform1f(uniform(cellProgram, "uPixelsPerUnit"), pixelsPerUnit)
+        GLES30.glBindVertexArray(cellArray)
+        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, count)
+    }
+
+    private fun selectedIndex(snapshot: WorldSnapshot, uid: Int): Int {
+        if (uid == 0) return -1
+        val uids = snapshot.cellUids
+        for (i in 0 until snapshot.cellCount) if (uids[i] == uid) return i
+        return -1
+    }
+
+    /** Copies [count] floats into the GL buffer through a reusable direct buffer; returns the (maybe grown) buffer. */
+    private fun upload(buffer: Int, staging: FloatBuffer, source: FloatArray, count: Int): FloatBuffer {
+        val data = ensure(staging, count)
+        data.clear()
+        data.put(source, 0, count)
+        data.flip()
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, buffer)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, count * Float.SIZE_BYTES, data, GLES30.GL_STREAM_DRAW)
+        return data
+    }
+
+    private fun ensure(buffer: FloatBuffer, count: Int): FloatBuffer =
+        if (buffer.capacity() >= count) buffer else floats(maxOf(count, buffer.capacity() * 2))
+
+    private fun bindQuad(buffer: Int, offsetVertices: Int) {
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, buffer)
+        GLES30.glEnableVertexAttribArray(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 2 * Float.SIZE_BYTES, offsetVertices * 2 * Float.SIZE_BYTES)
+    }
+
+    /** Per-instance attribute: [size] floats starting [offset] floats into each [stride]-float record. */
+    private fun instanced(location: Int, size: Int, stride: Int, offset: Int) {
+        GLES30.glEnableVertexAttribArray(location)
+        GLES30.glVertexAttribPointer(
+            location, size, GLES30.GL_FLOAT, false, stride * Float.SIZE_BYTES, offset * Float.SIZE_BYTES,
+        )
+        GLES30.glVertexAttribDivisor(location, 1)
+    }
+
+    private fun uniform(program: Int, name: String): Int = GLES30.glGetUniformLocation(program, name)
+
     private companion object {
-        const val CORNER_ATTRIBUTE = 0
+        /** Two quads in one buffer, as triangle strips: centred (−1..1) and along a segment (0..1 × −1..1). */
+        val QUADS = floatArrayOf(
+            -1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f,
+            0f, -1f, 1f, -1f, 0f, 1f, 1f, 1f,
+        )
+        const val CENTRED_QUAD = 0
+        const val SEGMENT_QUAD = 4
 
-        /** Corners of a square from -1 to 1, as a triangle strip. */
-        val QUAD_CORNERS = floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)
+        /** Index of the flags inside a cell record, and the bit that marks the cell under diagnostics. */
+        const val FLAGS_OFFSET = 10
+        const val SELECTED_FLAG = 256f
 
-        /** Colour around the dish, RGB 0..1; also the clear colour, so the quad has no visible edge. */
+        /** Colour around the dish, RGB 0..1; also the clear colour, so the dish quad has no visible edge. */
         val BACKGROUND = floatArrayOf(0.016f, 0.024f, 0.031f)
 
-        // Quad corners are scaled to 1.1 dish radii so the wall and its halo fit inside.
-        val VERTEX_SHADER = """
-            #version 300 es
-            layout(location = 0) in vec2 aCorner;
-            uniform mat3 uViewProjection;
-            uniform float uRadius;
-            out vec2 vLocal;
-
-            const float EXTENT = 1.1;
-
-            void main() {
-                vLocal = aCorner * EXTENT;
-                vec3 clip = uViewProjection * vec3(vLocal * uRadius, 1.0);
-                gl_Position = vec4(clip.xy, 0.0, 1.0);
-            }
-        """.trimIndent()
-
-        // vLocal is measured in dish radii: the medium fills d < 1, the glass wall sits just outside.
-        val FRAGMENT_SHADER = """
-            #version 300 es
-            precision highp float;
-
-            in vec2 vLocal;
-            uniform vec3 uBackground;
-            out vec4 fragColor;
-
-            const vec3 MEDIUM_CENTER = vec3(0.050, 0.098, 0.118);
-            const vec3 MEDIUM_EDGE = vec3(0.027, 0.058, 0.074);
-            const vec3 WALL_SHADE = vec3(0.180, 0.260, 0.300);
-            const vec3 WALL_LIGHT = vec3(0.640, 0.800, 0.860);
-            const vec2 LIGHT_DIRECTION = vec2(-0.447, 0.894);
-            const float WALL_WIDTH = 0.016;
-            const float HALO_WIDTH = 0.06;
-            const float HALO_STRENGTH = 0.12;
-
-            void main() {
-                float d = length(vLocal);
-                float pixel = max(fwidth(d), 1e-6);
-                float wall = max(WALL_WIDTH, 1.5 * pixel);
-
-                vec3 color = uBackground;
-
-                float inside = 1.0 - smoothstep(1.0 - pixel, 1.0, d);
-                color = mix(color, mix(MEDIUM_CENTER, MEDIUM_EDGE, d * d), inside);
-
-                float ring = smoothstep(1.0 - pixel, 1.0, d) * (1.0 - smoothstep(1.0 + wall - pixel, 1.0 + wall, d));
-                vec2 normal = vLocal / max(d, 1e-6);
-                float shine = pow(max(dot(normal, LIGHT_DIRECTION), 0.0), 3.0);
-                color = mix(color, mix(WALL_SHADE, WALL_LIGHT, shine), ring);
-
-                float halo = smoothstep(1.0 + wall - pixel, 1.0 + wall, d)
-                    * (1.0 - smoothstep(1.0 + wall, 1.0 + wall + HALO_WIDTH, d));
-                color += WALL_SHADE * HALO_STRENGTH * halo;
-
-                fragColor = vec4(color, 1.0);
-            }
-        """.trimIndent()
+        fun floats(count: Int): FloatBuffer =
+            ByteBuffer.allocateDirect(count * Float.SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer()
     }
 }

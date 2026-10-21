@@ -22,6 +22,10 @@ class DishCamera {
     /** Until the user moves the camera, it keeps the whole dish in view, e.g. after rotation. */
     private var followsFit = true
 
+    /** Diagnostics: keep this cell in the middle of the view (0 for none). */
+    @Volatile
+    var followUid: Int = 0
+
     @Synchronized
     fun setViewport(width: Int, height: Int) {
         viewWidth = width
@@ -57,6 +61,27 @@ class DishCamera {
         centerY = worldY + (toY - viewHeight / 2f) / zoom
         followsFit = false
         clampCenter()
+    }
+
+    /** Centres the view on a world point without changing the magnification (following a cell). */
+    @Synchronized
+    fun centerOn(x: Float, y: Float) {
+        if (zoom == 0f) return
+        centerX = x
+        centerY = y
+        followsFit = false
+        clampCenter()
+    }
+
+    /** Screen pixels per micrometre; 0 until the camera can see. */
+    @Synchronized
+    fun pixelsPerUnit(): Float = zoom
+
+    /** World coordinates of a screen point; null until the camera can see. */
+    @Synchronized
+    fun screenToWorld(sx: Float, sy: Float): Pair<Float, Float>? {
+        if (zoom == 0f) return null
+        return Pair(centerX + (sx - viewWidth / 2f) / zoom, centerY - (sy - viewHeight / 2f) / zoom)
     }
 
     /**
