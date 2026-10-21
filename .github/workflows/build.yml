@@ -1,10 +1,13 @@
-# Builds and tests on every push; a v* tag (for example v0.1.0) also publishes a GitHub Release with the APK.
+# Builds and tests on every push. A v* tag (for example v0.1.0), pushed or created with a release on the
+# Releases page, also attaches the APK to that GitHub Release.
 name: Build
 
 on:
   push:
     branches: ['**']
     tags: ['v*']
+  release:
+    types: [published]
   pull_request:
   workflow_dispatch:
 
@@ -102,6 +105,10 @@ jobs:
           fi
           printf '\nКак установить: откройте эту страницу на телефоне, скачайте файл .apk ниже и откройте его. Подробно — в README.\n' >> "$NOTES"
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            # A release made on the Releases page: fill in the notes if they were left empty.
+            if [ -z "$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)" ]; then
+              gh release edit "$GITHUB_REF_NAME" --notes-file "$NOTES"
+            fi
             gh release upload "$GITHUB_REF_NAME" app/build/dist/*.apk --clobber
           else
             gh release create "$GITHUB_REF_NAME" app/build/dist/*.apk --title "$APP_NAME $VERSION" --notes-file "$NOTES" --verify-tag
