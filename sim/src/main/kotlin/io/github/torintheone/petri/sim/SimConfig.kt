@@ -271,6 +271,30 @@ object SimConfig {
     const val NITROCYTE_NITRATES_PER_HOUR: Float = 2f
     const val SECROCYTE_NITRATES_PER_HOUR: Float = 0.5f
 
+    // ---- Evolution ----
+
+    /**
+     * Chance per hour that radiation mutates a cell: linear for weak radiation, steep for strong. At 0.04 a dish of
+     * 1000 cells gets about 7 mutations an hour (variation shows within tens of hours); at 1 every cell mutates
+     * twice an hour and genomes fall apart.
+     */
+    fun mutationsPerHour(radiation: Float): Float = 0.1f * radiation + 1.9f * radiation * radiation
+
+    /** Chance per hour that radiation kills a cell outright; only strong radiation matters. */
+    fun radiationDeathsPerHour(radiation: Float): Float = 0.1f * radiation * radiation
+
+    /** Share of mutations that change the structure (type, links, switches) when that is allowed. */
+    const val STRUCTURAL_MUTATION_SHARE: Float = 0.3f
+
+    /** Share of mutations that may hit any of the 40 modes; the rest hit a mode the organism uses. */
+    const val ANY_MODE_MUTATION_SHARE: Float = 0.2f
+
+    /** Spread of a point mutation as a share of the number's range. */
+    const val POINT_MUTATION_SIGMA: Float = 0.08f
+
+    /** «Заражение случайными клетками»: on average one newcomer per this many hours. */
+    const val INFECTION_INTERVAL_HOURS: Float = 4f
+
     // ---- Growth preview (genome editor) ----
 
     /** The preview organism stops dividing at this many cells. */

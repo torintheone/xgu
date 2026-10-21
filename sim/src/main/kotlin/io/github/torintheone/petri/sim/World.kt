@@ -83,6 +83,7 @@ class World(
     internal val behaviors = Behaviors(this)
     private val metabolism = Metabolism(this)
     private val divisions = Divisions(this)
+    private val mutations = Mutations(this)
     internal val foodGrid = SpatialGrid()
 
     val ageHours: Double get() = stepCount * SimConfig.STEP_HOURS
@@ -101,6 +102,7 @@ class World(
         behaviors.afterMovement()
         metabolism.run()
         divisions.run()
+        mutations.run()
         removeDead()
         metabolism.updateFood()
         advanceLight()

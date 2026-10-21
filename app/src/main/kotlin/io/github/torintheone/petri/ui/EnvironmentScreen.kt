@@ -24,6 +24,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,10 +50,12 @@ import io.github.torintheone.petri.BuildConfig
 import io.github.torintheone.petri.PetriViewModel
 import io.github.torintheone.petri.R
 import io.github.torintheone.petri.data.DishEntry
+import io.github.torintheone.petri.sim.CellType
 import io.github.torintheone.petri.sim.SimConfig
 import io.github.torintheone.petri.sim.SimStats
 import io.github.torintheone.petri.sim.SubstrateSettings
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /** «Среда» (SPEC «Интерфейс»): the dish buttons on top, then the parameters of the medium in groups. */
 @Composable
@@ -387,6 +390,35 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
             help = help[HELP_NITRATES],
         )
 
+        SectionTitle(stringResource(R.string.env_evolution))
+        // The slider moves along √radiation, so the weak levels that matter most get most of its length.
+        SliderRow(
+            label = stringResource(R.string.env_radiation),
+            value = sqrt(settings.radiation),
+            range = 0f..1f,
+            valueText = stringResource(
+                R.string.radiation_value,
+                decimal(settings.radiation, 3),
+                formatNumber(SimConfig.mutationsPerHour(settings.radiation) * 100.0, 1),
+            ),
+            onChange = { v -> change { it.copy(radiation = v * v) } },
+            levels = SNAP_LEVELS,
+            help = help[HELP_RADIATION],
+        )
+        SwitchRow(
+            stringResource(R.string.env_point_mutations_only),
+            settings.pointMutationsOnly,
+            { v -> change { it.copy(pointMutationsOnly = v) } },
+            help[HELP_POINT_ONLY],
+        )
+        SwitchRow(
+            stringResource(R.string.env_random_infection),
+            settings.randomInfection,
+            { v -> change { it.copy(randomInfection = v) } },
+            help[HELP_INFECTION],
+        )
+        GenePoolEditor(settings.genePool, help[HELP_GENE_POOL]) { pool -> change { it.copy(genePool = pool) } }
+
         SectionTitle(stringResource(R.string.env_rules))
         SliderRow(
             label = stringResource(R.string.env_dish_diameter),
@@ -431,6 +463,29 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
     }
 }
 
+/** «Генофонд»: which cell types mutations and random newcomers may use. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GenePoolEditor(pool: Set<CellType>, help: String, onChange: (Set<CellType>) -> Unit) {
+    val typeNames = stringArrayResource(R.array.cell_types)
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        ParameterName(stringResource(R.string.env_gene_pool), help)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            for (type in CellType.entries) {
+                val chosen = type in pool
+                FilterChip(
+                    selected = chosen,
+                    onClick = { onChange(if (chosen) pool - type else pool + type) },
+                    label = { Text(typeNames[type.ordinal]) },
+                )
+            }
+        }
+    }
+}
+
 private fun roundTo(value: Float, step: Int): Int = (value / step).roundToInt() * step
 
 private fun countLevels(range: IntRange): Int = (range.last - range.first) / COUNT_STEP + 1
@@ -469,3 +524,7 @@ private const val HELP_MAX_CELLS = 20
 private const val HELP_AGING = 21
 private const val HELP_DEADLY_WALLS = 22
 private const val HELP_BLOCKED_FLAGELLUM = 23
+private const val HELP_RADIATION = 24
+private const val HELP_POINT_ONLY = 25
+private const val HELP_INFECTION = 26
+private const val HELP_GENE_POOL = 27

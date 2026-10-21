@@ -260,6 +260,12 @@
     <string name="env_chemistry">Химия</string>
     <string name="env_salinity">Солёность</string>
     <string name="env_nitrates">Нитраты</string>
+    <string name="env_evolution">Эволюция</string>
+    <string name="env_radiation">Радиация</string>
+    <string name="radiation_value">%1$s · мутаций: %2$s на 100 клеток в час</string>
+    <string name="env_point_mutations_only">Только точечные мутации</string>
+    <string name="env_random_infection">Заражение случайными клетками</string>
+    <string name="env_gene_pool">Генофонд</string>
     <string name="env_rules">Правила</string>
     <string name="env_dish_diameter">Диаметр чашки</string>
     <string name="env_max_cells">Макс. число клеток</string>
@@ -305,6 +311,10 @@
         <item>Клетки умирают в возрасте 240 h.</item>
         <item>Клетка, коснувшаяся стенки чашки, погибает.</item>
         <item>Флагеллоцит, к хвосту которого приклеена другая клетка, погибает. Если выключено, его жгутик просто не работает.</item>
+        <item>Как часто случайно меняется геном клеток. Около 0,04 — за десятки часов появляются новые цвета и формы, и отбор оставляет лучших. 1 — геномы быстро разваливаются. Сильная радиация ещё и иногда убивает клетки.</item>
+        <item>Мутации меняют только числа: углы, массы, цвета. Тип клетки, режимы потомков и переключатели остаются прежними.</item>
+        <item>Примерно раз в 4 часа в случайном месте чашки появляется клетка со случайным геномом из типов генофонда.</item>
+        <item>Какие типы клеток могут появиться при мутациях и заражении. Если не выбрать ни одного, тип клеток не меняется и заражения нет.</item>
     </string-array>
 
     <!-- Short notes at the bottom of the screen. -->
