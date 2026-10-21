@@ -123,6 +123,8 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     BoxWithConstraints(
         modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End)),
     ) {
+        // Read here: the layout scopes below hide the constraints of BoxWithConstraints.
+        val previewHeight = minOf(maxHeight * 0.4f, 380.dp)
         if (maxWidth > maxHeight) {
             Row(
                 modifier = Modifier
@@ -144,7 +146,7 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                     .padding(horizontal = 12.dp),
             ) {
                 header()
-                preview(Modifier.fillMaxWidth().height(minOf(maxHeight * 0.4f, 380.dp)))
+                preview(Modifier.fillMaxWidth().height(previewHeight))
                 strip()
                 parameters(Modifier.weight(1f))
             }
