@@ -56,7 +56,6 @@
         <item>Цилиоцит</item>
     </string-array>
 
-    <string name="placeholder_environment">Настройки среды появятся на этапе 4.</string>
     <string name="version_label">%1$s %2$s</string>
 
     <!-- Dialogs. -->
@@ -190,7 +189,7 @@
         <item>Мышца приподнимает себя и соседей над дном, и трение о дно становится меньше.</item>
         <item>Сколько сигнала нейроцит добавляет в этот канал. Обычно это функция от другого сигнала: так строятся простые нервные цепочки.</item>
         <item>Встроенный генератор: по очереди подаёт сигнал в каналы A и B. 0 — выключен, 1 — около двух колебаний в час.</item>
-        <item>Стволовая клетка переходит в режим пути, как только условие становится больше 0. Сначала проверяется путь 1, потом путь 2.</item>
+        <item>Стволовая клетка без деления переходит в режим пути, как только условие становится больше 0,5. Сначала проверяется путь 1, потом путь 2.</item>
         <item>Что замечает сенсор: клетки нужного цвета, пищу, свет, скорость или стенку. Сенсоцит чувствует всё вокруг, стереоцит — с какой стороны.</item>
         <item>Насколько сильно сенсор отвечает на раздражитель.</item>
         <item>Какой цвет клеток ищет сенсор и насколько точным должно быть совпадение.</item>
@@ -219,6 +218,7 @@
     <string name="preset_chain">Нить</string>
     <string name="preset_arc">Дуга</string>
     <string name="preset_photocyte_colony">Колония фотоцитов</string>
+    <string name="preset_swimmer">Пловец</string>
 
     <!-- Dish files. -->
     <string name="env_dish">Чашка</string>
@@ -235,6 +235,77 @@
     <string name="dialog_delete_dish_text">Сохранённая чашка исчезнет навсегда.</string>
     <string name="dialog_sterilize_title">Стерилизовать чашку?</string>
     <string name="dialog_sterilize_text">Все клетки и пища исчезнут, возраст станет 0. Настройки среды останутся.</string>
+
+    <!-- Medium («Среда»). -->
+    <string name="env_food">Пища</string>
+    <string name="env_food_rate">Скорость появления пищи</string>
+    <string name="env_food_size">Размер частицы пищи</string>
+    <string name="env_food_clumping">Кучность пищи</string>
+    <string name="env_food_clump_size">Размер кучи</string>
+    <string name="env_food_coat">Оболочка пищи</string>
+    <string name="env_mobile_food">Подвижная пища</string>
+    <string name="env_max_food">Макс. число частиц пищи</string>
+    <string name="env_corpses_food">Погибшие клетки становятся пищей</string>
+    <string name="env_light">Свет</string>
+    <string name="env_light_brightness">Яркость света</string>
+    <string name="env_light_width">Ширина света</string>
+    <string name="env_light_rotation">Вращение света</string>
+    <string name="env_physics">Физика</string>
+    <string name="env_viscosity">Вязкость</string>
+    <string name="env_dynamic_friction">Динамическое трение</string>
+    <string name="env_static_friction">Статическое трение</string>
+    <string name="env_gravity">Гравитация</string>
+    <string name="env_medium_density">Плотность среды</string>
+    <string name="env_density_gradient">Градиент плотности</string>
+    <string name="env_chemistry">Химия</string>
+    <string name="env_salinity">Солёность</string>
+    <string name="env_nitrates">Нитраты</string>
+    <string name="env_rules">Правила</string>
+    <string name="env_dish_diameter">Диаметр чашки</string>
+    <string name="env_max_cells">Макс. число клеток</string>
+    <string name="env_aging">Старение</string>
+    <string name="env_deadly_walls">Гибель на краю</string>
+    <string name="env_blocked_flagellum_kills">Склеенный жгутик убивает клетку</string>
+    <string name="env_reset">Сбросить настройки</string>
+    <string name="dialog_reset_title">Сбросить настройки среды?</string>
+    <string name="dialog_reset_text">Все параметры среды вернутся к значениям по умолчанию. Клетки и пища останутся.</string>
+    <string name="per_hour_value">%1$d в час</string>
+    <string name="clump_value">по %1$d</string>
+    <string name="um_value">%1$d мкм</string>
+    <string name="mm_value">%1$s мм</string>
+    <string name="percent_value">%1$d %%</string>
+    <string name="cost_factor_value">расход ×%1$s</string>
+    <string name="light_even">вся чашка</string>
+    <string name="light_still">стоит</string>
+    <string name="light_turn_value">оборот за %1$s h</string>
+
+    <!-- Order: see HELP_* in EnvironmentScreen.kt. -->
+    <string-array name="help_environment">
+        <item>Сколько частиц пищи появляется в чашке за час. 0 — пища не появляется совсем.</item>
+        <item>Сколько массы получает фагоцит, съев одну частицу. Крупные частицы видны лучше.</item>
+        <item>Сколько частиц появляется вместе, одной кучкой. Кучная пища заставляет организмы искать её.</item>
+        <item>Насколько широко разбросаны частицы в одной кучке.</item>
+        <item>Доля пищи в липидной оболочке (красные точки). Фагоцит не может съесть такую частицу, пока липаза секроцита не снимет оболочку.</item>
+        <item>Пища медленно дрейфует, тонет или всплывает и раздвигается клетками. Если выключено, частицы стоят на месте.</item>
+        <item>Больше этого числа частиц в чашке не бывает: новые не появляются, пока старые не съедены.</item>
+        <item>Погибшая клетка оставляет частицу пищи с половиной своей массы.</item>
+        <item>Насколько ярко светит источник на краю чашки. Фотоциты растут тем быстрее, чем ярче свет в их точке.</item>
+        <item>0 — узкий луч у самого источника, 1 — ровный свет по всей чашке.</item>
+        <item>Как быстро источник света обходит чашку по краю. 0 — стоит на месте, вверху.</item>
+        <item>Густота среды: чем больше, тем медленнее плавают клетки и дрейфует пища.</item>
+        <item>Трение о дно при движении: тормозит клетки и делает плавание дороже.</item>
+        <item>Покоящаяся клетка не сдвинется, пока её не потянут сильнее этого порога.</item>
+        <item>Сила, с которой тонут клетки плотнее среды и всплывают более лёгкие.</item>
+        <item>Плотность среды: обычные клетки чуть плотнее значения 0,5. Ниже — клетки тонут быстрее, выше — всплывают.</item>
+        <item>Насколько плотность среды растёт ко дну. С градиентом лёгкие клетки зависают на своей глубине.</item>
+        <item>Низкая солёность делает жизнь дороже: клетки тратят до 1,5 раза больше массы в час, высокая — до 2 раз меньше.</item>
+        <item>Как быстро клетки набирают нитраты из среды. Без нитратов клетки не делятся, но и не умирают.</item>
+        <item>Размер мира. Клетка массой 3,6 нг — примерно 1/40 диаметра чашки 1 мм.</item>
+        <item>Когда клеток становится столько, новые деления прекращаются. Чем больше клеток, тем больше нагрузка на телефон.</item>
+        <item>Клетки умирают в возрасте 240 h.</item>
+        <item>Клетка, коснувшаяся стенки чашки, погибает.</item>
+        <item>Флагеллоцит, к хвосту которого приклеена другая клетка, погибает. Если выключено, его жгутик просто не работает.</item>
+    </string-array>
 
     <!-- Short notes at the bottom of the screen. -->
     <string name="msg_genome_saved">Геном «%1$s» сохранён</string>

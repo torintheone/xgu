@@ -257,6 +257,33 @@ class World(
         cells.vy[i] = 0f
     }
 
+    /**
+     * New settings from the «Среда» tab. When the dish gets smaller, cells and food outside it are moved
+     * just inside the new wall, so nothing is crushed by it.
+     */
+    fun applySettings(newSettings: SubstrateSettings) {
+        settings = newSettings
+        val dishR = dishRadius
+        for (i in 0 until cells.count) {
+            val limit = dishR - radiusOf(cells.mass[i])
+            val d2 = cells.x[i] * cells.x[i] + cells.y[i] * cells.y[i]
+            if (limit > 0f && d2 > limit * limit) {
+                val scale = limit / sqrt(d2)
+                cells.x[i] *= scale
+                cells.y[i] *= scale
+            }
+        }
+        for (k in 0 until food.count) {
+            val limit = dishR - food.radius(k)
+            val d2 = food.x[k] * food.x[k] + food.y[k] * food.y[k]
+            if (limit > 0f && d2 > limit * limit) {
+                val scale = limit / sqrt(d2)
+                food.x[k] *= scale
+                food.y[k] *= scale
+            }
+        }
+    }
+
     /** Kills every cell and particle and resets the age; settings stay (SPEC «стерилизовать»). */
     fun sterilize() {
         cells.count = 0

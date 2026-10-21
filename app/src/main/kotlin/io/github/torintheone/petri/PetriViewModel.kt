@@ -90,6 +90,11 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     private val dishesState = MutableStateFlow<List<DishEntry>>(emptyList())
     val dishes: StateFlow<List<DishEntry>> = dishesState.asStateFlow()
 
+    private val settingsState = MutableStateFlow(SubstrateSettings())
+
+    /** The medium of the running dish, as the «Среда» tab shows it. */
+    val settings: StateFlow<SubstrateSettings> = settingsState.asStateFlow()
+
     init {
         runner = SimulationRunner(World(SubstrateSettings(), seed = System.currentTimeMillis()))
         runner.timeMode = timeMode
@@ -112,21 +117,27 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         }
         genome?.let(editor::load)
         if (dish != null) {
+            settingsState.value = dish.settings
             runner.replaceWorld(dish)
         } else {
             runner.post { it.populate(Genome.default(), cellCount = STARTING_CELLS, foodFraction = STARTING_FOOD) }
         }
-        withContext(Dispatchers.IO) {
-            if (storage.needsPresets()) {
-                for (preset in Preset.entries) {
-                    val name = getApplication<Application>().getString(preset.title)
-                    storage.saveGenome(name, preset.genome(name))
-                }
-                storage.markPresetsWritten()
-            }
-        }
+        withContext(Dispatchers.IO) { offerPresets() }
         refreshGenbank()
         refreshDishes()
+    }
+
+    /** Example genomes go into the bank once each: all on the first launch, new ones after an update. */
+    private fun offerPresets() {
+        val offered = storage.offeredPresets()
+        val fresh = Preset.entries.filter { it.name !in offered }
+        if (fresh.isEmpty()) return
+        val existing = storage.genomes().map { it.name }.toSet()
+        for (preset in fresh) {
+            val name = getApplication<Application>().getString(preset.title)
+            if (name !in existing) storage.saveGenome(name, preset.genome(name))
+        }
+        storage.markPresetsOffered(fresh.map { it.name })
     }
 
     fun selectTimeMode(mode: TimeMode) {
@@ -316,6 +327,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
             val result = withContext(Dispatchers.IO) { runCatching { DishCodec.decode(storage.readDish(entry.name)) } }
             result.onSuccess { world ->
                 select(0)
+                settingsState.value = world.settings
                 runner.replaceWorld(world)
                 say(R.string.msg_dish_loaded, entry.name)
             }.onFailure { say(R.string.msg_dish_file_wrong) }
@@ -334,6 +346,19 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         select(0)
         runner.post { it.sterilize() }
         say(R.string.msg_dish_sterilized)
+    }
+
+    // ---- Medium ----
+
+    /** Changes the medium of the running dish (the «Среда» tab); values are clamped to their ranges. */
+    fun changeSettings(change: (SubstrateSettings) -> SubstrateSettings) {
+        val next = change(settingsState.value).sanitized()
+        settingsState.value = next
+        runner.post { it.applySettings(next) }
+    }
+
+    fun resetSettings() {
+        changeSettings { SubstrateSettings() }
     }
 
     private suspend fun refreshDishes() {
@@ -376,4 +401,5 @@ val Preset.title: Int
         Preset.CHAIN -> R.string.preset_chain
         Preset.ARC -> R.string.preset_arc
         Preset.PHOTOCYTE_COLONY -> R.string.preset_photocyte_colony
+        Preset.SWIMMER -> R.string.preset_swimmer
     }

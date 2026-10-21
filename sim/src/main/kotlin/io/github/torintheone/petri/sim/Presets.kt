@@ -13,6 +13,12 @@ enum class Preset {
 
     /** Photocytes glued into a round colony that grows towards the light. */
     PHOTOCYTE_COLONY,
+
+    /**
+     * A phagocyte pushed by a flagellocyte (SPEC «Этап 4»). The seed divides into a head in front and a tail behind
+     * that faces the head, so the flagellum at its back is free. The head buds off a free seed to its front right.
+     */
+    SWIMMER,
     ;
 
     fun genome(name: String): Genome {
@@ -37,6 +43,37 @@ enum class Preset {
                 green = 0.85f,
                 blue = 0.3f,
             )
+            SWIMMER -> {
+                modes[0] = modes[0].copy(
+                    makeAdhesin = true,
+                    splitAngle = 90f,
+                    child1Mode = 1,
+                    child2Mode = 2,
+                    adhesinStiffness = 1f,
+                    red = 0.95f,
+                    green = 0.85f,
+                    blue = 0.45f,
+                )
+                modes[1] = modes[1].copy(
+                    splitMass = 3f,
+                    splitRatio = 0.55f,
+                    splitAngle = 225f,
+                    child1Mode = 1,
+                    child2Mode = 0,
+                    child2KeepBonds = false,
+                    red = 0.4f,
+                    green = 0.85f,
+                    blue = 0.95f,
+                )
+                modes[2] = modes[2].copy(
+                    cellType = CellType.FLAGELLOCYTE,
+                    splitMass = Mode.SPLIT_NEVER,
+                    swimForce = ProgrammableValue.constant(0.6f),
+                    red = 0.95f,
+                    green = 0.5f,
+                    blue = 0.35f,
+                )
+            }
         }
         return Genome(name = name, initialMode = 0, modes = modes)
     }

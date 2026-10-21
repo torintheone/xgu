@@ -71,7 +71,12 @@ internal class Metabolism(private val world: World) {
             val pi = priority(i)
             val pj = priority(j)
             var flow = rate * (c.mass[i] / pi - c.mass[j] / pj) * (pi * pj / (pi + pj))
-            val limit = SimConfig.SHARE_MAX_FRACTION_PER_STEP * (if (flow > 0f) c.mass[i] else c.mass[j])
+            // Limited per step, and never more than the receiver can hold: a full cell must not waste a lipocyte's store.
+            val limit = if (flow > 0f) {
+                minOf(SimConfig.SHARE_MAX_FRACTION_PER_STEP * c.mass[i], maxOf(0f, CellType.of(c.type[j]).maxMass - c.mass[j]))
+            } else {
+                minOf(SimConfig.SHARE_MAX_FRACTION_PER_STEP * c.mass[j], maxOf(0f, CellType.of(c.type[i]).maxMass - c.mass[i]))
+            }
             flow = flow.coerceIn(-limit, limit)
             c.massDelta[i] -= flow
             c.massDelta[j] += flow

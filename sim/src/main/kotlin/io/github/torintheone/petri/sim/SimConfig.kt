@@ -113,8 +113,11 @@ object SimConfig {
 
     // ---- Movers ----
 
-    /** Thrust of a flagellum at «Сила плавания» 1, ng·µm/min²: a lone cell swims about 2 µm per game minute. */
-    const val FLAGELLUM_FORCE: Float = 2f
+    /**
+     * Thrust of a flagellum at «Сила плавания» 1, ng·µm/min². In the default medium a lone 2.5 ng cell then swims
+     * about 5 µm per game minute, and the two-cell «Пловец» at force 0.6 about 90 µm per game hour.
+     */
+    const val FLAGELLUM_FORCE: Float = 6f
 
     /** Extra upkeep of a flagellum at full force, ng/h before [COST_SCALE] (0.1 base + up to 0.15 more). */
     const val FLAGELLUM_COST_PER_HOUR: Float = 0.15f

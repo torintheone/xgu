@@ -25,7 +25,8 @@ class Storage(context: Context) {
     private val dishDir = File(context.filesDir, "dishes")
     private val autosaveDir = File(context.filesDir, "autosave")
     private val shareDir = File(context.cacheDir, "share")
-    private val presetsMarker = File(context.filesDir, "presets-1")
+    private val presetsFile = File(context.filesDir, "presets.txt")
+    private val legacyPresetsMarker = File(context.filesDir, "presets-1")
     private val resolver = context.contentResolver
 
     // ---- Genome bank ----
@@ -44,12 +45,17 @@ class Storage(context: Context) {
         file(genomeDir, name, GenomeCodec.EXTENSION).delete()
     }
 
-    /** True once: on the first launch, when the example genomes still have to be written. */
-    fun needsPresets(): Boolean = !presetsMarker.exists()
+    /** Names of the example genomes already put into the bank once (see [io.github.torintheone.petri.sim.Preset]). */
+    fun offeredPresets(): Set<String> {
+        if (presetsFile.exists()) return presetsFile.readLines().filter { it.isNotBlank() }.toSet()
+        // Version 0.3.0 kept only a marker for its four examples.
+        return if (legacyPresetsMarker.exists()) LEGACY_PRESETS else emptySet()
+    }
 
-    fun markPresetsWritten() {
-        presetsMarker.parentFile?.mkdirs()
-        presetsMarker.writeText("")
+    fun markPresetsOffered(names: List<String>) {
+        val all = offeredPresets() + names
+        write(presetsFile, all.joinToString("\n").toByteArray())
+        legacyPresetsMarker.delete()
     }
 
     // ---- Dishes ----
@@ -146,6 +152,7 @@ class Storage(context: Context) {
         const val MAX_GENOME_BYTES = 2 * 1024 * 1024
 
         private const val BUFFER_BYTES = 16 * 1024
+        private val LEGACY_PRESETS = setOf("SINGLE_PHAGOCYTES", "CHAIN", "ARC", "PHOTOCYTE_COLONY")
         private val UNSAFE_CHARACTERS = Regex("[^\\p{L}\\p{N} _-]")
     }
 }
