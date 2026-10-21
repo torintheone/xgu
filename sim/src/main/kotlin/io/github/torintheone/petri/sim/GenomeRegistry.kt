@@ -68,6 +68,32 @@ class GenomeRegistry {
         liveCount = 0
     }
 
+    /** The exact slot layout, so that a loaded dish reuses slots in the same order as the saved one. */
+    internal fun table(): GenomeTable = GenomeTable(
+        nextId = nextId,
+        slots = List(size) { slot -> genomes[slot]?.let { SavedGenome(ids[slot], parentIds[slot], it) } },
+        freeSlots = freeSlots.toIntArray(),
+    )
+
+    /** Replaces everything with a saved layout. Reference counts start at 0: the loaded cells acquire their slots. */
+    internal fun restore(table: GenomeTable) {
+        clear()
+        for (saved in table.slots) {
+            val slot = grow()
+            if (saved != null) {
+                genomes[slot] = saved.genome
+                ids[slot] = saved.id
+                parentIds[slot] = saved.parentId
+                slotByGenome.putIfAbsent(saved.genome, slot)
+            }
+        }
+        for (slot in table.freeSlots) freeSlots.addLast(slot)
+        nextId = table.nextId
+    }
+
+    /** True when [slot] holds a genome. */
+    internal fun isUsed(slot: Int): Boolean = slot in 0 until size && genomes[slot] != null
+
     /** Slots that living cells use, in slot order. */
     fun liveSlots(): List<Int> = (0 until size).filter { genomes[it] != null && refs[it] > 0 }
 

@@ -18,13 +18,13 @@ internal class Divisions(private val world: World) {
 
     fun run() {
         val c = world.cells
-        val settings = world.settings
+        val limit = world.cellLimit
         val parents = c.count
         for (i in 0 until parents) {
             if (world.isDead(i)) continue
             val mode = world.modeOf(i)
             if (!ready(i, mode)) continue
-            if (c.count >= settings.maxCells || c.count >= c.capacity) return
+            if (c.count >= limit || c.count >= c.capacity) return
             divide(i, mode)
         }
     }

@@ -84,6 +84,21 @@ class PopulationHistory(val capacity: Int) {
         size = 0
     }
 
+    internal fun table(): HistoryTable {
+        val list = samples()
+        return HistoryTable(
+            hours = FloatArray(list.size) { list[it].hour },
+            cells = IntArray(list.size) { list[it].cells },
+            food = IntArray(list.size) { list[it].food },
+            species = IntArray(list.size) { list[it].species },
+        )
+    }
+
+    internal fun restore(table: HistoryTable) {
+        clear()
+        for (k in table.hours.indices) add(table.hours[k], table.cells[k], table.food[k], table.species[k])
+    }
+
     /** Samples oldest first. */
     fun samples(): List<Sample> = List(size) {
         val slot = (start + it) % capacity

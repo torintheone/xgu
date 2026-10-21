@@ -268,6 +268,20 @@ object SimConfig {
     const val NITROCYTE_NITRATES_PER_HOUR: Float = 2f
     const val SECROCYTE_NITRATES_PER_HOUR: Float = 0.5f
 
+    // ---- Growth preview (genome editor) ----
+
+    /** The preview organism stops dividing at this many cells. */
+    const val PREVIEW_MAX_CELLS: Int = 64
+
+    /** The preview covers game hours 0 until this, one picture per hour (the slider shows 0–47 h). */
+    const val PREVIEW_HOURS: Int = 48
+
+    /** Mass every preview cell gains per hour, ng: «endless food and light». A 2.5 ng mode divides about every 1.3 h. */
+    const val PREVIEW_GROWTH_PER_HOUR: Float = 1f
+
+    /** The preview dish is the largest allowed, so the walls rarely get in the way, mm. */
+    const val PREVIEW_DISH_DIAMETER_MM: Float = 3f
+
     // ---- Statistics ----
 
     /** How often the population graph gets a new point, h. */

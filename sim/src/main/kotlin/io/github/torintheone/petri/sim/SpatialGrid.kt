@@ -1,16 +1,18 @@
 package io.github.torintheone.petri.sim
 
-import kotlin.math.ceil
 import kotlin.math.max
 
 /**
- * Uniform grid over the dish for neighbour search (SPEC: «пространственная хеш-сетка»).
+ * Uniform grid for neighbour search (SPEC: «пространственная хеш-сетка»). It covers only the box around the points,
+ * so a small organism in a large dish (the growth preview) costs no more than in a small one.
  * Rebuilt with a counting sort; buffers grow once and are reused afterwards.
  */
 internal class SpatialGrid {
     var cellSize = 1f
         private set
     var columns = 0
+        private set
+    var rows = 0
         private set
     var originX = 0f
         private set
@@ -24,13 +26,31 @@ internal class SpatialGrid {
         private set
     private var bucketOf = IntArray(0)
 
-    /** Sorts [count] points into buckets of [size] covering a square of half-width [halfExtent] around the centre. */
-    fun build(xs: FloatArray, ys: FloatArray, count: Int, halfExtent: Float, size: Float) {
+    /** Sorts [count] points into square buckets of [size]. */
+    fun build(xs: FloatArray, ys: FloatArray, count: Int, size: Float) {
         cellSize = size
-        columns = ceil(2f * halfExtent / size).toInt() + 2
-        originX = -halfExtent - size
-        originY = -halfExtent - size
-        val buckets = columns * columns
+        if (count == 0) {
+            columns = 0
+            rows = 0
+            return
+        }
+        var minX = xs[0]
+        var maxX = xs[0]
+        var minY = ys[0]
+        var maxY = ys[0]
+        for (i in 1 until count) {
+            val x = xs[i]
+            val y = ys[i]
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+        }
+        originX = minX - size
+        originY = minY - size
+        columns = ((maxX - minX) / size).toInt() + 3
+        rows = ((maxY - minY) / size).toInt() + 3
+        val buckets = columns * rows
         if (start.size < buckets + 1) start = IntArray(buckets + 1)
         if (items.size < count) {
             items = IntArray(max(count, items.size * 2))
@@ -55,11 +75,14 @@ internal class SpatialGrid {
 
     fun column(x: Float): Int = ((x - originX) / cellSize).toInt().coerceIn(0, columns - 1)
 
-    fun row(y: Float): Int = ((y - originY) / cellSize).toInt().coerceIn(0, columns - 1)
+    fun row(y: Float): Int = ((y - originY) / cellSize).toInt().coerceIn(0, rows - 1)
 
     private fun bucketIndex(x: Float, y: Float): Int = row(y) * columns + column(x)
 
-    /** Calls [action] with every item whose bucket lies within [radius] of (x, y). */
+    /**
+     * Calls [action] with every item whose bucket lies within [radius] of (x, y). Points outside the grid are
+     * clamped to its edge, so callers still check the actual distance.
+     */
     inline fun forEachNear(x: Float, y: Float, radius: Float, action: (Int) -> Unit) {
         if (columns == 0) return
         val c0 = column(x - radius)

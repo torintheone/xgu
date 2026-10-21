@@ -168,6 +168,36 @@ class Bonds(val capacity: Int) {
         liveCount = 0
     }
 
+    /** The pool exactly as it is, free list included, so a loaded dish hands out bond ids in the same order. */
+    internal fun table(): BondTable = BondTable(
+        alive = alive.copyOf(size),
+        a = a.copyOf(size),
+        b = b.copyOf(size),
+        anchorA = anchorA.copyOf(size),
+        anchorB = anchorB.copyOf(size),
+        rest = rest.copyOf(size),
+        stiffness = stiffness.copyOf(size),
+        kind = kind.copyOf(size),
+        free = free.copyOf(freeCount),
+    )
+
+    internal fun restore(table: BondTable) {
+        clear()
+        val n = table.alive.size
+        table.alive.copyInto(alive)
+        table.a.copyInto(a)
+        table.b.copyInto(b)
+        table.anchorA.copyInto(anchorA)
+        table.anchorB.copyInto(anchorB)
+        table.rest.copyInto(rest)
+        table.stiffness.copyInto(stiffness)
+        table.kind.copyInto(kind)
+        table.free.copyInto(free)
+        size = n
+        freeCount = table.free.size
+        liveCount = table.alive.count { it }
+    }
+
     companion object {
         const val WALL = -1
 

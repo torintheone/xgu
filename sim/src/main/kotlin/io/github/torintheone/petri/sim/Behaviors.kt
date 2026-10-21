@@ -66,7 +66,7 @@ internal class Behaviors(val world: World) {
             for (i in 0 until n) if (physics.touchingWall[i]) world.kill(i)
         }
         val food = world.food
-        world.foodGrid.build(food.x, food.y, food.count, world.dishRadius + physics.maxRadius, 2f * physics.maxRadius)
+        world.foodGrid.build(food.x, food.y, food.count, 2f * physics.maxRadius)
         for (i in 0 until n) {
             if (world.isDead(i)) continue
             when (c.type[i]) {

@@ -73,6 +73,12 @@ class World(
      */
     var previewGrowth: Float = -1f
 
+    /** Growth preview: the organism stops dividing at this many cells; 0 leaves the limit to the settings. */
+    var previewCellLimit: Int = 0
+
+    /** Most cells the dish may hold now. */
+    internal val cellLimit: Int get() = if (previewCellLimit > 0) previewCellLimit else settings.maxCells
+
     internal val physics = Physics(this)
     internal val behaviors = Behaviors(this)
     private val metabolism = Metabolism(this)
@@ -140,7 +146,7 @@ class World(
         mass: Float = SimConfig.SYNTHESIZED_MASS,
         mode: Int = genome.initialMode,
     ): Int {
-        if (cells.count >= settings.maxCells || px * px + py * py > dishRadius * dishRadius) return 0
+        if (cells.count >= cellLimit || px * px + py * py > dishRadius * dishRadius) return 0
         val slot = genomes.slotFor(genome)
         val i = spawnCell(slot, mode, px, py, angle, mass, nextOrganism++, mirrored = false, nitrates = 1f)
         return if (i >= 0) cells.uid[i] else 0

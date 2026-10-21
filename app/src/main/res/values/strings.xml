@@ -56,8 +56,201 @@
         <item>Цилиоцит</item>
     </string-array>
 
-    <string name="placeholder_genome">Редактор генома появится на этапе 3.</string>
     <string name="placeholder_environment">Настройки среды появятся на этапе 4.</string>
-    <string name="placeholder_genbank">Генбанк появится на этапе 3.</string>
     <string name="version_label">%1$s %2$s</string>
+
+    <!-- Dialogs. -->
+    <string name="dialog_ok">Понятно</string>
+    <string name="dialog_save">Сохранить</string>
+    <string name="dialog_cancel">Отмена</string>
+    <string name="dialog_name">Имя</string>
+    <string name="dialog_delete_title">Удалить «%1$s»?</string>
+
+    <!-- Genome editor. -->
+    <string name="genome_untitled">Без имени</string>
+    <string name="genome_imported">Импортированный геном</string>
+    <string name="genome_summary">%1$s · режимов: %2$d</string>
+    <string name="editor_rename">Переименовать геном</string>
+    <string name="editor_snapping">Привязка</string>
+    <string name="editor_mode_title">Режим M%1$d</string>
+    <string name="editor_initial">Начальный</string>
+    <string name="param_cell_type">Тип клетки</string>
+    <string name="section_division">Деление</string>
+    <string name="param_split_mass">Масса деления</string>
+    <string name="value_by_age">по возрасту</string>
+    <string name="value_never">никогда</string>
+    <string name="param_split_ratio">Соотношение деления</string>
+    <string name="param_split_angle">Угол деления</string>
+    <string name="param_make_adhesin">Делать адгезин</string>
+    <string name="section_child">Потомок %1$d</string>
+    <string name="param_child_mode">Режим потомка</string>
+    <string name="param_child_angle">Угол потомка</string>
+    <string name="param_keep_bonds">Сохранять связи</string>
+    <string name="param_mirror">Зеркально</string>
+    <string name="section_adhesin">Адгезин</string>
+    <string name="param_adhesin_stiffness">Жёсткость адгезина</string>
+    <string name="param_adhesin_length">Длина адгезина</string>
+    <string name="param_max_bonds">Макс. связей</string>
+    <string name="section_nutrition">Питание</string>
+    <string name="param_priority">Приоритет питания</string>
+    <string name="param_prioritize">Приоритизировать</string>
+    <string name="section_cell">Клетка</string>
+    <string name="param_cytoskeleton">Цитоскелет</string>
+    <string name="param_red">Цвет: красный</string>
+    <string name="param_green">Цвет: зелёный</string>
+    <string name="param_blue">Цвет: синий</string>
+    <string name="param_swim_force">Сила плавания</string>
+    <string name="param_density">Плотность</string>
+    <string name="param_contraction">Сокращение</string>
+    <string name="param_bend">Изгиб</string>
+    <string name="param_lift">Подъём</string>
+    <string name="param_neuron_output">Выход в %1$s</string>
+    <string name="param_oscillator_frequency">Частота генератора</string>
+    <string name="param_oscillator_channel_a">Генератор: канал A</string>
+    <string name="param_oscillator_channel_b">Генератор: канал B</string>
+    <string name="param_path_mode">Путь %1$d: режим</string>
+    <string name="param_path_signal">Путь %1$d: условие</string>
+    <string name="param_sense_target">Что чувствует</string>
+    <string name="param_signal_channel">Канал сигнала</string>
+    <string name="param_sense_gain">Чувствительность</string>
+    <string name="param_sense_red">Цвет цели: красный</string>
+    <string name="param_sense_green">Цвет цели: зелёный</string>
+    <string name="param_sense_blue">Цвет цели: синий</string>
+    <string name="param_sense_threshold">Точность цвета</string>
+    <string name="param_secretion">Вещество</string>
+    <string name="param_secretion_intensity">Интенсивность</string>
+    <string name="param_virus_mode">Режим заражённой клетки</string>
+    <string name="param_fusion_mode">Режим после слияния</string>
+    <string name="param_left_cilia">Реснички слева</string>
+    <string name="param_right_cilia">Реснички справа</string>
+    <string name="pv_input_value">вход: %1$s</string>
+    <string name="pv_value">Значение</string>
+    <string name="pv_shape_linear">Линейная</string>
+    <string name="pv_shape_step">Ступенчатая</string>
+    <string name="pv_formula_linear">значение = a × вход + b</string>
+    <string name="pv_formula_step">значение = a, если вход &lt; c, иначе b</string>
+
+    <!-- In SignalInput order. -->
+    <string-array name="pv_inputs">
+        <item>нет</item>
+        <item>S1</item>
+        <item>S2</item>
+        <item>S3</item>
+        <item>S4</item>
+        <item>масса</item>
+        <item>возраст</item>
+        <item>нитраты</item>
+        <item>связи</item>
+    </string-array>
+
+    <!-- In SenseTarget order. -->
+    <string-array name="sense_targets">
+        <item>клетки</item>
+        <item>пища</item>
+        <item>пища в оболочке</item>
+        <item>свет</item>
+        <item>скорость</item>
+        <item>стенка</item>
+    </string-array>
+
+    <!-- In Substance order. -->
+    <string-array name="substances">
+        <item>запах пищи</item>
+        <item>цианид</item>
+        <item>сигнал</item>
+        <item>липаза</item>
+    </string-array>
+
+    <!-- Parameter help, our own words. Order: see HELP_* in GenomeScreen.kt. -->
+    <string-array name="help_mode">
+        <item>Чем занята клетка в этом режиме. У каждого типа одна работа: фагоцит ест пищу, фотоцит живёт за счёт света, флагеллоцит плавает и так далее.</item>
+        <item>Клетка делится, когда наберёт эту массу. Слева — «по возрасту»: деление раз в 0,5 h, сколько бы клетка ни весила. Справа — «никогда»: клетка не делится.</item>
+        <item>Какая доля массы матери достаётся потомку 1, остальное получает потомок 2. Потомок легче 0,3 нг сразу погибает.</item>
+        <item>Наклон плоскости деления к «переду» клетки — белой точке на мембране. При 0° потомки встают по бокам, при 90° — один впереди, другой сзади.</item>
+        <item>Если включено, потомки после деления остаются склеенными. Так из одной клетки вырастает многоклеточный организм.</item>
+        <item>Режим, в который перейдёт потомок после деления. Разные режимы — разные клетки одного организма.</item>
+        <item>На сколько градусов потомок повернётся относительно матери. Поворот меняет направление следующих делений: так растут дуги и спирали.</item>
+        <item>Если выключено, потомок не забирает связи матери со своей стороны и отрывается от организма.</item>
+        <item>Потомок отсчитывает все углы по часовой стрелке, а не против. Нужно для симметричных организмов: одна половина — зеркало другой.</item>
+        <item>Насколько жёстко связь держит длину и угол. Мягкие связи гнутся, жёсткие держат форму.</item>
+        <item>Зазор между склеенными клетками: 0 — вплотную, 1 — около 10 мкм.</item>
+        <item>Клетка, у которой столько связей, больше не делится. Так можно ограничить рост организма.</item>
+        <item>Вес клетки при обмене едой по связям: клетки с большим приоритетом получают от соседей больше массы.</item>
+        <item>Когда клетке грозит голодная смерть, её приоритет на время вырастает в 10 раз, и соседи её подкармливают.</item>
+        <item>Твёрдость клетки при столкновениях. Твёрдая клетка дороже: при делении она тратит больше массы.</item>
+        <item>Цвет мембраны. Помогает различать режимы; сенсоры других клеток видят этот цвет.</item>
+    </string-array>
+
+    <!-- Order: see HELP_* in GenomeScreen.kt. -->
+    <string-array name="help_type">
+        <item>Сила толчка жгутика: больше — быстрее, но дороже. Жгутик растёт сзади клетки; если к нему приклеена связь, он не работает.</item>
+        <item>Плотность клетки. Если гравитация включена, клетка плотнее среды тонет, а легче — всплывает.</item>
+        <item>Насколько мышца укорачивает (больше 0) или удлиняет (меньше 0) свои связи спереди и сзади.</item>
+        <item>Насколько мышца поворачивает свои связи спереди и сзади, изгибая организм.</item>
+        <item>Мышца приподнимает себя и соседей над дном, и трение о дно становится меньше.</item>
+        <item>Сколько сигнала нейроцит добавляет в этот канал. Обычно это функция от другого сигнала: так строятся простые нервные цепочки.</item>
+        <item>Встроенный генератор: по очереди подаёт сигнал в каналы A и B. 0 — выключен, 1 — около двух колебаний в час.</item>
+        <item>Стволовая клетка переходит в режим пути, как только условие становится больше 0. Сначала проверяется путь 1, потом путь 2.</item>
+        <item>Что замечает сенсор: клетки нужного цвета, пищу, свет, скорость или стенку. Сенсоцит чувствует всё вокруг, стереоцит — с какой стороны.</item>
+        <item>Насколько сильно сенсор отвечает на раздражитель.</item>
+        <item>Какой цвет клеток ищет сенсор и насколько точным должно быть совпадение.</item>
+        <item>Что клетка выделяет в среду и сколько. Цианид ядовит для чужих клеток, липаза снимает оболочку с пищи и растворяет жир липоцитов.</item>
+        <item>Вироцит заражает соседние клетки чужих организмов: они получают его геном и переходят в этот режим.</item>
+        <item>Две гаметы при встрече сливаются в одну клетку, и она переходит в этот режим. Её геном собирается из геномов родителей.</item>
+        <item>Скорость ресничек слева и справа. Реснички толкают клетку вдоль соседей; разная скорость с боков поворачивает организм.</item>
+    </string-array>
+
+    <!-- Genome bank. -->
+    <string name="genbank_in_editor">В редакторе</string>
+    <string name="genbank_saved">Сохранённые геномы</string>
+    <string name="genbank_save">Сохранить</string>
+    <string name="genbank_share">Поделиться</string>
+    <string name="genbank_from_microscope">С микроскопа</string>
+    <string name="genbank_default">По умолчанию</string>
+    <string name="genbank_import">Импорт</string>
+    <string name="genbank_delete">Удалить</string>
+    <string name="genbank_empty">Генбанк пуст. Сохраните геном из редактора или импортируйте файл.</string>
+    <string name="genbank_microscope_hint">«С микроскопа» берёт геном клетки, выбранной инструментом «Диагностика».</string>
+    <string name="dialog_save_genome">Сохранить геном</string>
+    <string name="dialog_overwrite_note">Геном с таким же именем будет заменён.</string>
+    <string name="dialog_delete_genome_text">Геном исчезнет из генбанка. Клетки в чашке останутся.</string>
+    <string name="share_chooser">Поделиться геномом</string>
+    <string name="preset_single">Одиночные фагоциты</string>
+    <string name="preset_chain">Нить</string>
+    <string name="preset_arc">Дуга</string>
+    <string name="preset_photocyte_colony">Колония фотоцитов</string>
+
+    <!-- Dish files. -->
+    <string name="env_dish">Чашка</string>
+    <string name="env_dish_state">Возраст %1$s h · клеток: %2$d · пищи: %3$d</string>
+    <string name="env_save_dish">Сохранить чашку</string>
+    <string name="env_load_dish">Загрузить</string>
+    <string name="env_sterilize">Стерилизовать</string>
+    <string name="dish_default_name">Чашка, %1$s h</string>
+    <string name="dialog_save_dish">Сохранить чашку</string>
+    <string name="dialog_overwrite_dish_note">Чашка с таким же именем будет заменена.</string>
+    <string name="dialog_load_dish">Загрузить чашку</string>
+    <string name="dialog_load_dish_note">Текущая чашка будет заменена. Если она нужна, сначала сохраните её.</string>
+    <string name="dishes_empty">Сохранённых чашек пока нет.</string>
+    <string name="dialog_delete_dish_text">Сохранённая чашка исчезнет навсегда.</string>
+    <string name="dialog_sterilize_title">Стерилизовать чашку?</string>
+    <string name="dialog_sterilize_text">Все клетки и пища исчезнут, возраст станет 0. Настройки среды останутся.</string>
+
+    <!-- Short notes at the bottom of the screen. -->
+    <string name="msg_genome_saved">Геном «%1$s» сохранён</string>
+    <string name="msg_genome_loaded">Геном «%1$s» в редакторе</string>
+    <string name="msg_genome_default">В редакторе геном по умолчанию</string>
+    <string name="msg_genome_copied">Геном клетки в редакторе, синтезатор сажает его</string>
+    <string name="msg_select_cell_first">Сначала выберите клетку инструментом «Диагностика»</string>
+    <string name="msg_cell_gone">Эта клетка уже погибла</string>
+    <string name="msg_import_ok">Геном «%1$s» добавлен в генбанк</string>
+    <string name="msg_file_wrong_kind">Это не файл генома Petri</string>
+    <string name="msg_file_newer">Файл сделан более новой версией Petri. Обновите приложение</string>
+    <string name="msg_file_damaged">Файл повреждён, прочитать его не получилось</string>
+    <string name="msg_file_error">Не получилось открыть файл</string>
+    <string name="msg_save_failed">Не получилось сохранить «%1$s»</string>
+    <string name="msg_dish_saved">Чашка «%1$s» сохранена</string>
+    <string name="msg_dish_loaded">Чашка «%1$s» загружена</string>
+    <string name="msg_dish_sterilized">Чашка стерилизована</string>
+    <string name="msg_dish_file_wrong">Файл чашки повреждён, загрузить его не получилось</string>
 </resources>

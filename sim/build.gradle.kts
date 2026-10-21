@@ -9,7 +9,8 @@ kotlin {
 }
 
 dependencies {
-    implementation(libs.kotlinx.serialization.json)
+    // api: genomes and dishes are @Serializable, so their serializers are part of this module's API.
+    api(libs.kotlinx.serialization.json)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

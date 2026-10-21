@@ -48,7 +48,7 @@ internal class Physics(private val world: World) {
             if (r > maxR) maxR = r
         }
         maxRadius = maxR
-        grid.build(c.x, c.y, c.count, world.dishRadius + maxR, 2f * maxR)
+        grid.build(c.x, c.y, c.count, 2f * maxR)
     }
 
     private fun substep(h: Float) {

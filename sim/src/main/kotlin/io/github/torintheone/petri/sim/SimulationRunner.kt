@@ -34,7 +34,10 @@ data class SimStats(
  *
  * Other threads change the world only through [post]; the renderer reads [latestSnapshot], the UI reads [stats].
  */
-class SimulationRunner(private val world: World) : AutoCloseable {
+class SimulationRunner(world: World) : AutoCloseable {
+    /** Touched only on the simulation thread, after [start]. */
+    private var world: World = world
+
     private val snapshots = TripleBuffer(::WorldSnapshot)
     private val commands = ConcurrentLinkedQueue<(World) -> Unit>()
 
@@ -96,6 +99,18 @@ class SimulationRunner(private val world: World) : AutoCloseable {
     /** Runs [command] on the simulation thread before the next step. */
     fun post(command: (World) -> Unit) {
         commands.add(command)
+        wake()
+    }
+
+    /**
+     * Swaps in another dish (a loaded save, a fresh one). Commands posted earlier still run on the old dish,
+     * later ones on the new one.
+     */
+    fun replaceWorld(newWorld: World) {
+        commands.add {
+            world = newWorld
+            historyStamp = -1L
+        }
         wake()
     }
 

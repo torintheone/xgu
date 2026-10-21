@@ -1,18 +1,37 @@
 package io.github.torintheone.petri
 
 import android.app.Application
+import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import io.github.torintheone.petri.data.DishEntry
+import io.github.torintheone.petri.data.GenbankEntry
+import io.github.torintheone.petri.data.Storage
 import io.github.torintheone.petri.render.DishCamera
 import io.github.torintheone.petri.render.DishGestures
+import io.github.torintheone.petri.sim.DishCodec
+import io.github.torintheone.petri.sim.FormatException
 import io.github.torintheone.petri.sim.Genome
+import io.github.torintheone.petri.sim.GenomeCodec
+import io.github.torintheone.petri.sim.GrowthPreview
+import io.github.torintheone.petri.sim.Preset
+import io.github.torintheone.petri.sim.PreviewFrame
 import io.github.torintheone.petri.sim.SimStats
 import io.github.torintheone.petri.sim.SimulationRunner
 import io.github.torintheone.petri.sim.SubstrateSettings
 import io.github.torintheone.petri.sim.TimeMode
 import io.github.torintheone.petri.sim.World
+import io.github.torintheone.petri.sim.saveState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,17 +39,31 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.IOException
 
 /** Microscope tools (SPEC «Инструменты микроскопа»). */
 enum class Tool { SYNTHESIZER, TWEEZERS, FEED, DELETE, DIAGNOSTICS }
 
+/** A short note for the snackbar: a string resource and an optional name to put into it. */
+data class UiMessage(@param:StringRes val text: Int, val argument: String? = null)
+
 /**
- * Owns the running simulation, the camera and the microscope state, so they survive screen rotation and tab
- * switches. Taps and drags on the dish arrive here (as [DishGestures]) and become commands for the simulation thread.
+ * Owns the running simulation, the camera, the genome editor and the files, so they survive screen rotation and
+ * tab switches. Taps and drags on the dish arrive here (as [DishGestures]) and become commands for the simulation.
  */
 class PetriViewModel(application: Application) : AndroidViewModel(application), DishGestures {
+    private val storage = Storage(application)
+
+    /** File writes that should finish even when the screen goes away, such as the autosave. */
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     val runner: SimulationRunner
     val camera = DishCamera()
+    val editor = GenomeEditor(viewModelScope)
 
     var timeMode by mutableStateOf(TimeMode.OBSERVE)
         private set
@@ -42,18 +75,23 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     var following by mutableStateOf(false)
         private set
 
-    private val genomeState = MutableStateFlow(Genome.default())
-
-    /** The genome the synthesizer plants (and, later, the one being edited). */
-    val genome: StateFlow<Genome> = genomeState.asStateFlow()
-
     /** Status panel numbers, refreshed a few times per second while someone collects them. */
     val stats: Flow<SimStats>
 
+    private val messageChannel = Channel<UiMessage>(Channel.BUFFERED)
+    val messages: Flow<UiMessage> = messageChannel.receiveAsFlow()
+
+    private val genbankState = MutableStateFlow<List<GenbankEntry>>(emptyList())
+    val genbank: StateFlow<List<GenbankEntry>> = genbankState.asStateFlow()
+
+    /** Pictures for the genome bank, by [thumbnailKey]; filled in the background. */
+    val thumbnails: SnapshotStateMap<String, PreviewFrame> = mutableStateMapOf()
+
+    private val dishesState = MutableStateFlow<List<DishEntry>>(emptyList())
+    val dishes: StateFlow<List<DishEntry>> = dishesState.asStateFlow()
+
     init {
-        val world = World(SubstrateSettings(), seed = System.currentTimeMillis())
-        world.populate(Genome.default(), cellCount = STARTING_CELLS, foodFraction = STARTING_FOOD)
-        runner = SimulationRunner(world)
+        runner = SimulationRunner(World(SubstrateSettings(), seed = System.currentTimeMillis()))
         runner.timeMode = timeMode
         runner.start()
         stats = flow {
@@ -62,6 +100,33 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
                 delay(STATS_REFRESH_MS)
             }
         }.distinctUntilChanged()
+        viewModelScope.launch { restore() }
+    }
+
+    /** Brings back the dish and genome from the last autosave, or starts a fresh dish. */
+    private suspend fun restore() {
+        val (dish, genome) = withContext(Dispatchers.IO) {
+            val dish = storage.readAutosaveDish()?.let { runCatching { DishCodec.decode(it) }.getOrNull() }
+            val genome = storage.readAutosaveGenome()?.let { runCatching { GenomeCodec.decode(it) }.getOrNull() }
+            dish to genome
+        }
+        genome?.let(editor::load)
+        if (dish != null) {
+            runner.replaceWorld(dish)
+        } else {
+            runner.post { it.populate(Genome.default(), cellCount = STARTING_CELLS, foodFraction = STARTING_FOOD) }
+        }
+        withContext(Dispatchers.IO) {
+            if (storage.needsPresets()) {
+                for (preset in Preset.entries) {
+                    val name = getApplication<Application>().getString(preset.title)
+                    storage.saveGenome(name, preset.genome(name))
+                }
+                storage.markPresetsWritten()
+            }
+        }
+        refreshGenbank()
+        refreshDishes()
     }
 
     fun selectTimeMode(mode: TimeMode) {
@@ -73,9 +138,18 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         tool = newTool
     }
 
-    /** The world stands still while the app is in the background. */
+    /** The world stands still while the app is in the background, and the dish and genome are saved. */
     fun onAppVisible(visible: Boolean) {
         runner.isPaused = !visible
+        if (!visible) autosave()
+    }
+
+    private fun autosave() {
+        val genome = editor.genome.value
+        runner.post { world ->
+            val state = world.saveState()
+            ioScope.launch { runCatching { storage.writeAutosave(DishCodec.encode(state), genome) } }
+        }
     }
 
     // ---- Gestures on the dish ----
@@ -83,7 +157,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     override fun onTap(x: Float, y: Float, slack: Float) {
         when (tool) {
             Tool.SYNTHESIZER -> {
-                val planted = genomeState.value
+                val planted = editor.genome.value
                 runner.post { it.addCell(planted, x, y) }
             }
             Tool.FEED -> runner.post { world ->
@@ -131,10 +205,153 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         camera.followUid = if (following) runner.selectedUid else 0
     }
 
-    /** «Копировать геном»: the selected cell's genome becomes the one the synthesizer plants. */
+    /** «Копировать геном» and «Загрузить с микроскопа»: the selected cell's genome goes into the editor. */
     fun copySelectedGenome() {
         val uid = runner.selectedUid
-        runner.post { world -> world.genomeOfCell(uid)?.let { genomeState.value = it } }
+        if (uid == 0) {
+            say(R.string.msg_select_cell_first)
+            return
+        }
+        runner.post { world ->
+            val genome = world.genomeOfCell(uid)
+            viewModelScope.launch {
+                if (genome == null) {
+                    say(R.string.msg_cell_gone)
+                } else {
+                    editor.load(genome)
+                    say(R.string.msg_genome_copied)
+                }
+            }
+        }
+    }
+
+    // ---- Genome bank ----
+
+    fun saveGenome(name: String) {
+        val clean = name.trim().take(Storage.MAX_NAME_LENGTH)
+        if (clean.isEmpty()) return
+        editor.rename(clean)
+        val genome = editor.genome.value
+        viewModelScope.launch {
+            val saved = withContext(Dispatchers.IO) { runCatching { storage.saveGenome(clean, genome) }.isSuccess }
+            say(if (saved) R.string.msg_genome_saved else R.string.msg_save_failed, clean)
+            refreshGenbank()
+        }
+    }
+
+    fun loadGenome(entry: GenbankEntry) {
+        editor.load(entry.genome.copy(name = entry.name))
+        say(R.string.msg_genome_loaded, entry.name)
+    }
+
+    fun loadDefaultGenome() {
+        editor.load(Genome.default())
+        say(R.string.msg_genome_default)
+    }
+
+    fun deleteGenome(entry: GenbankEntry) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { storage.deleteGenome(entry.name) }
+            refreshGenbank()
+        }
+    }
+
+    /** Writes [genome] to a file for the share sheet; [ready] runs on the main thread. */
+    fun shareGenome(genome: Genome, ready: (File) -> Unit) {
+        viewModelScope.launch {
+            val fallback = getApplication<Application>().getString(R.string.genome_untitled)
+            val file = withContext(Dispatchers.IO) { runCatching { storage.shareableGenome(genome, fallback) }.getOrNull() }
+            if (file != null) ready(file) else say(R.string.msg_file_error)
+        }
+    }
+
+    /** Reads a genome file the person picked, adds it to the bank and opens it in the editor. */
+    fun importGenome(uri: Uri) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val genome = GenomeCodec.decode(storage.readPicked(uri, Storage.MAX_GENOME_BYTES).decodeToString())
+                    val fallback = getApplication<Application>().getString(R.string.genome_imported)
+                    val name = genome.name.trim().take(Storage.MAX_NAME_LENGTH).ifEmpty { fallback }
+                    storage.saveGenome(name, genome)
+                    genome.copy(name = name)
+                }
+            }
+            result.onSuccess { genome ->
+                editor.load(genome)
+                say(R.string.msg_import_ok, genome.name)
+                refreshGenbank()
+            }.onFailure { error -> say(problemMessage(error)) }
+        }
+    }
+
+    fun thumbnailKey(entry: GenbankEntry): String = "${entry.name}@${entry.modified}"
+
+    private suspend fun refreshGenbank() {
+        val list = withContext(Dispatchers.IO) { storage.genomes() }
+        genbankState.value = list
+        for (entry in list) {
+            val key = thumbnailKey(entry)
+            if (key !in thumbnails) thumbnails[key] = withContext(Dispatchers.Default) { GrowthPreview.thumbnail(entry.genome) }
+        }
+    }
+
+    // ---- Dishes ----
+
+    fun saveDish(name: String) {
+        val clean = name.trim().take(Storage.MAX_NAME_LENGTH)
+        if (clean.isEmpty()) return
+        runner.post { world ->
+            val state = world.saveState()
+            viewModelScope.launch {
+                val saved = withContext(Dispatchers.IO) { runCatching { storage.saveDish(clean, DishCodec.encode(state)) }.isSuccess }
+                say(if (saved) R.string.msg_dish_saved else R.string.msg_save_failed, clean)
+                refreshDishes()
+            }
+        }
+    }
+
+    fun loadDish(entry: DishEntry) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { DishCodec.decode(storage.readDish(entry.name)) } }
+            result.onSuccess { world ->
+                select(0)
+                runner.replaceWorld(world)
+                say(R.string.msg_dish_loaded, entry.name)
+            }.onFailure { say(R.string.msg_dish_file_wrong) }
+        }
+    }
+
+    fun deleteDish(entry: DishEntry) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { storage.deleteDish(entry.name) }
+            refreshDishes()
+        }
+    }
+
+    /** «Стерилизовать»: no cells, no food, age 0; the settings stay. */
+    fun sterilize() {
+        select(0)
+        runner.post { it.sterilize() }
+        say(R.string.msg_dish_sterilized)
+    }
+
+    private suspend fun refreshDishes() {
+        dishesState.value = withContext(Dispatchers.IO) { storage.dishes() }
+    }
+
+    // ---- Messages ----
+
+    private fun say(@StringRes text: Int, argument: String? = null) {
+        messageChannel.trySend(UiMessage(text, argument))
+    }
+
+    @StringRes
+    private fun problemMessage(error: Throwable): Int = when ((error as? FormatException)?.problem) {
+        FormatException.Problem.WRONG_KIND -> R.string.msg_file_wrong_kind
+        FormatException.Problem.NEWER_VERSION -> R.string.msg_file_newer
+        FormatException.Problem.DAMAGED -> R.string.msg_file_damaged
+        null -> if (error is IOException) R.string.msg_file_error else R.string.msg_file_damaged
     }
 
     override fun onCleared() {
@@ -150,3 +367,13 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         const val FEED_MASS = 0.5f
     }
 }
+
+/** Name of an example genome in the genome bank. */
+@get:StringRes
+val Preset.title: Int
+    get() = when (this) {
+        Preset.SINGLE_PHAGOCYTES -> R.string.preset_single
+        Preset.CHAIN -> R.string.preset_chain
+        Preset.ARC -> R.string.preset_arc
+        Preset.PHOTOCYTE_COLONY -> R.string.preset_photocyte_colony
+    }
