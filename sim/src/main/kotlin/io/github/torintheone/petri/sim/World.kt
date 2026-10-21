@@ -385,6 +385,46 @@ class World(
         cells.type[i] = genomes[slot].modes[cells.mode[i]].cellType.ordinal
     }
 
+    /** Virus: copies mode [start] of [virus] and every mode reachable from it into cell j's genome, then switches to it. */
+    internal fun infect(j: Int, virus: Genome, start: Int) {
+        val slot = cells.genome[j]
+        val victim = genomes[slot]
+        val modes = victim.modes.toMutableList()
+        for (k in virus.reachableModes(start)) modes[k] = virus.modes[k]
+        val infected = victim.copy(modes = modes)
+        if (infected != victim) setGenome(j, genomes.slotFor(infected, parentId = genomes.id(slot)))
+        setMode(j, start)
+    }
+
+    /**
+     * Two gametes become one cell in the place of gamete i: each of the 40 modes comes from one parent at random,
+     * the masses add up, and the cell switches to gamete i's «Режим после слияния» as a new organism.
+     */
+    internal fun fuse(i: Int, j: Int) {
+        val a = genomes[cells.genome[i]]
+        val b = genomes[cells.genome[j]]
+        val modes = List(Mode.MODE_COUNT) { k -> if (rng.nextBoolean()) a.modes[k] else b.modes[k] }
+        val child = Genome(name = a.name, initialMode = a.initialMode, modes = modes).sanitized()
+        val target = a.modes[cells.mode[i]].fusionMode
+        val parentId = genomes.id(cells.genome[i])
+        val mi = cells.mass[i]
+        val mj = cells.mass[j]
+        val total = mi + mj
+        cells.x[i] = (cells.x[i] * mi + cells.x[j] * mj) / total
+        cells.y[i] = (cells.y[i] * mi + cells.y[j] * mj) / total
+        cells.vx[i] = (cells.vx[i] * mi + cells.vx[j] * mj) / total
+        cells.vy[i] = (cells.vy[i] * mi + cells.vy[j] * mj) / total
+        cells.nitrates[i] = (cells.nitrates[i] + cells.nitrates[j]) / 2f
+        cells.age[i] = 0f
+        cells.organism[i] = nextOrganism++
+        setGenome(i, genomes.slotFor(child, parentId))
+        setMode(i, target)
+        cells.mass[i] = minOf(total, cells.cellType(i).maxMass)
+        // The partner is used up: nothing of it is left to become food.
+        cells.mass[j] = 0f
+        kill(j)
+    }
+
     /** Adds a bond; returns its id or −1 when a cell already has [Mode.MAX_BONDS] bonds or the pool is full. */
     internal fun addBond(i: Int, j: Int, anchorI: Float, anchorJ: Float, rest: Float, stiffness: Float, kind: Int): Int {
         if (cells.bondCount[i] >= Mode.MAX_BONDS || bonds.isFull) return -1

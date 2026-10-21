@@ -31,7 +31,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -58,18 +61,29 @@ import java.util.Locale
 @Composable
 fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     val stats by viewModel.stats.collectAsStateWithLifecycle(initialValue = SimStats.EMPTY)
+    var showGraph by rememberSaveable { mutableStateOf(false) }
     Box(modifier) {
         DishView(viewModel, Modifier.fillMaxSize())
-        StatusPanel(
-            stats = stats,
-            timeMode = viewModel.timeMode,
-            onTimeModeSelected = viewModel::selectTimeMode,
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
                 .padding(8.dp)
                 .widthIn(max = 560.dp),
-        )
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatusPanel(
+                stats = stats,
+                timeMode = viewModel.timeMode,
+                onTimeModeSelected = viewModel::selectTimeMode,
+                graphShown = showGraph,
+                onToggleGraph = { showGraph = !showGraph },
+            )
+            if (showGraph) {
+                val history by viewModel.history.collectAsStateWithLifecycle(initialValue = emptyList())
+                PopulationGraph(history, Modifier.fillMaxWidth())
+            }
+        }
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -118,6 +132,8 @@ private fun StatusPanel(
     stats: SimStats,
     timeMode: TimeMode,
     onTimeModeSelected: (TimeMode) -> Unit,
+    graphShown: Boolean,
+    onToggleGraph: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -132,11 +148,19 @@ private fun StatusPanel(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Stat(R.string.stat_age, stringResource(R.string.hours_value, formatNumber(stats.ageHours, 1)))
                 Stat(R.string.stat_cells, stats.cellCount.toString())
                 Stat(R.string.stat_food, stats.foodCount.toString())
                 Stat(R.string.stat_species, stats.speciesCount.toString())
+                IconButton(onClick = onToggleGraph) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_graph),
+                        contentDescription = stringResource(if (graphShown) R.string.graph_hide else R.string.graph_show),
+                        tint = if (graphShown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 TimeMode.entries.forEachIndexed { index, mode ->

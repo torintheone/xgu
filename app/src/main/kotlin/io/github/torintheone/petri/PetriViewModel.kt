@@ -20,6 +20,7 @@ import io.github.torintheone.petri.sim.FormatException
 import io.github.torintheone.petri.sim.Genome
 import io.github.torintheone.petri.sim.GenomeCodec
 import io.github.torintheone.petri.sim.GrowthPreview
+import io.github.torintheone.petri.sim.PopulationHistory
 import io.github.torintheone.petri.sim.Preset
 import io.github.torintheone.petri.sim.PreviewFrame
 import io.github.torintheone.petri.sim.SimStats
@@ -77,6 +78,14 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     /** Status panel numbers, refreshed a few times per second while someone collects them. */
     val stats: Flow<SimStats>
+
+    /** The population graph, refreshed every half second while it is shown. */
+    val history: Flow<List<PopulationHistory.Sample>> = flow {
+        while (true) {
+            emit(runner.history)
+            delay(HISTORY_REFRESH_MS)
+        }
+    }.distinctUntilChanged { old, new -> old === new }
 
     private val messageChannel = Channel<UiMessage>(Channel.BUFFERED)
     val messages: Flow<UiMessage> = messageChannel.receiveAsFlow()
@@ -385,6 +394,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     private companion object {
         const val STATS_REFRESH_MS = 100L
+        const val HISTORY_REFRESH_MS = 500L
         const val STARTING_CELLS = 30
         const val STARTING_FOOD = 0.5f
 

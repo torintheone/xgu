@@ -69,11 +69,30 @@ fun EnvironmentScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) 
     ) {
         DishCard(viewModel)
         SettingsEditor(viewModel)
+        About(Modifier.padding(top = 16.dp))
+    }
+}
+
+/** The version and «О приложении» (SPEC «Этап 7»). */
+@Composable
+private fun About(modifier: Modifier = Modifier) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val version = stringResource(R.string.version_label, stringResource(R.string.app_name), BuildConfig.VERSION_NAME)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(R.string.version_label, stringResource(R.string.app_name), BuildConfig.VERSION_NAME),
+            text = version,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.padding(top = 16.dp),
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = { open = true }) { Text(stringResource(R.string.about_title)) }
+    }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.dialog_ok)) } },
+            title = { Text(version) },
+            text = { Text(stringResource(R.string.about_text)) },
         )
     }
 }

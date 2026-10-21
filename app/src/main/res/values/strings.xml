@@ -13,6 +13,12 @@
     <string name="stat_species">Виды</string>
     <string name="hours_value">%1$s h</string>
 
+    <string name="graph_show">Показать график численности</string>
+    <string name="graph_hide">Скрыть график численности</string>
+    <string name="graph_empty">График появится через час игрового времени.</string>
+    <string name="graph_span">с %1$s h по %2$s h</string>
+    <string name="graph_value">%1$d (макс. %2$d)</string>
+
     <string name="time_freeze">Заморозка</string>
     <string name="time_observe">Наблюдение</string>
     <string name="time_incubate">Инкубация</string>
@@ -57,6 +63,8 @@
     </string-array>
 
     <string name="version_label">%1$s %2$s</string>
+    <string name="about_title">О приложении</string>
+    <string name="about_text">Песочница эволюции клеток. Соберите геном из 40 режимов, вырастите из одной клетки организм и посмотрите, кто выживет в чашке Петри: среда сама отбирает тех, кто лучше ест и размножается.\n\nКод, графика и тексты созданы с нуля для этого проекта с помощью Claude Code.\n\nСохранения хранятся только на этом телефоне; геномами можно делиться файлами.</string>
 
     <!-- Dialogs. -->
     <string name="dialog_ok">Понятно</string>

@@ -143,6 +143,9 @@ object SimConfig {
     const val DEVOUR_PER_HOUR: Float = 6f
     const val DEVOUR_EFFICIENCY: Float = 0.8f
 
+    /** Chance per hour that a virocyte infects a touching cell. */
+    const val VIRUS_INFECTIONS_PER_HOUR: Float = 2f
+
     /** A glueocyte stops gluing once it has this many bonds. */
     const val GLUE_MAX_BONDS: Int = 5
 

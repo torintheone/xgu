@@ -35,4 +35,28 @@ class BenchmarkTest {
             "${"%.2f".format(msPerStep)} ms per step (${"%.0f".format(1000 / msPerStep)} steps/s; observation needs 60)")
         assertTrue(msPerStep < 100.0, "a step takes $msPerStep ms")
     }
+
+    @Test
+    fun `step time with 2000 living cells, signals and sensors`() {
+        val world = World(SubstrateSettings(dishDiameterMm = 3f, maxCells = 2_000, maxFood = 2_000, foodRate = 1f), 13L)
+        world.populate(Genome.default(), cellCount = 300, foodFraction = 0.5f)
+        repeat(60) {
+            val (x, y) = world.randomPointInDisk(world.dishRadius * 0.8f)
+            world.addCell(Preset.SMART_SWIMMER.genome("smart"), x, y, mass = 3.4f)
+        }
+        repeat(20) {
+            val (x, y) = world.randomPointInDisk(world.dishRadius * 0.8f)
+            world.addCell(Preset.PHOTOCYTE_COLONY.genome("colony"), x, y, mass = 3f)
+        }
+        var warmUp = 0
+        while (world.cellCount < 2_000 && warmUp++ < 40 * 60) world.step()
+        val steps = 300
+        val start = System.nanoTime()
+        repeat(steps) { world.step() }
+        val msPerStep = (System.nanoTime() - start) / 1e6 / steps
+        val sensors = (0 until world.cellCount).count { world.cells.cellType(it) == CellType.STEREOCYTE }
+        println("BENCHMARK: ${world.cellCount} living cells ($sensors stereocytes), ${world.bonds.liveCount} bonds, " +
+            "${world.foodCount} food: ${"%.2f".format(msPerStep)} ms per step (${"%.0f".format(1000 / msPerStep)} steps/s)")
+        assertTrue(msPerStep < 100.0, "a step takes $msPerStep ms")
+    }
 }

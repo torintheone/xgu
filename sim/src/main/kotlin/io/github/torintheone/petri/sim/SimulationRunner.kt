@@ -92,6 +92,8 @@ class SimulationRunner(world: World) : AutoCloseable {
         publish()
         thread = Thread(::loop, THREAD_NAME).apply {
             isDaemon = true
+            // Just below normal: «Инкубация» takes every free cycle, but the interface and the renderer go first.
+            priority = Thread.NORM_PRIORITY - 1
             start()
         }
     }

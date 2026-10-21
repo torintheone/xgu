@@ -73,6 +73,8 @@ internal class Behaviors(val world: World) {
                 PHAGOCYTE -> eat(i)
                 DEVOROCYTE -> devour(i)
                 GLUEOCYTE -> glue(i)
+                VIROCYTE -> infect(i)
+                GAMETE -> fuse(i)
             }
         }
     }
@@ -210,6 +212,33 @@ internal class Behaviors(val world: World) {
         }
     }
 
+    /**
+     * Virocyte: now and then infects a touching unprotected cell of another organism. The victim gets the virus mode
+     * and every mode reachable from it, copied from the virocyte's genome, and switches to the virus mode.
+     */
+    private fun infect(i: Int) {
+        val c = world.cells
+        if (world.previewGrowth >= 0f) return
+        val chance = SimConfig.VIRUS_INFECTIONS_PER_HOUR * SimConfig.STEP_HOURS_F
+        val virusMode = world.modeOf(i).virusMode
+        forEachTouching(i) { j ->
+            if (c.organism[j] != c.organism[i] && !isProtected(j) && c.type[j] != VIROCYTE && world.rng.chance(chance)) {
+                world.infect(j, world.genomes[c.genome[i]], virusMode)
+            }
+        }
+    }
+
+    /** Gamete: fuses with the first touching gamete of another organism (SPEC «Гамета»). */
+    private fun fuse(i: Int) {
+        val c = world.cells
+        if (world.isDead(i)) return
+        var partner = -1
+        forEachTouching(i) { j ->
+            if (partner < 0 && c.type[j] == GAMETE && c.organism[j] != c.organism[i]) partner = j
+        }
+        if (partner >= 0) world.fuse(i, partner)
+    }
+
     private fun hasWallBond(i: Int): Boolean {
         val c = world.cells
         val base = i * Mode.MAX_BONDS
@@ -226,6 +255,8 @@ internal class Behaviors(val world: World) {
         val KERATINOCYTE = CellType.KERATINOCYTE.ordinal
         val GLUEOCYTE = CellType.GLUEOCYTE.ordinal
         val MYOCYTE = CellType.MYOCYTE.ordinal
+        val VIROCYTE = CellType.VIROCYTE.ordinal
+        val GAMETE = CellType.GAMETE.ordinal
 
         /** Largest food particle radius, µm. */
         val MAX_FOOD_RADIUS = SimConfig.FOOD_RADIUS_PER_SQRT_NG * kotlin.math.sqrt(SimConfig.FOOD_MASS_MAX)
