@@ -35,6 +35,10 @@ data class CellInfo(
 class World(
     settings: SubstrateSettings = SubstrateSettings(),
     seed: Long = 1L,
+    /** Room for cells, bonds and food; a small preview world needs far less than a dish. */
+    cellCapacity: Int = SimConfig.CELL_CAPACITY,
+    bondCapacity: Int = SimConfig.BOND_CAPACITY,
+    foodCapacity: Int = SimConfig.FOOD_CAPACITY,
 ) {
     var settings: SubstrateSettings = settings.sanitized()
         set(value) {
@@ -42,9 +46,9 @@ class World(
         }
 
     val rng = Rng(seed)
-    val cells = Cells(SimConfig.CELL_CAPACITY)
-    val bonds = Bonds(SimConfig.BOND_CAPACITY)
-    val food = Food(SimConfig.FOOD_CAPACITY)
+    val cells = Cells(cellCapacity)
+    val bonds = Bonds(bondCapacity)
+    val food = Food(foodCapacity)
     val genomes = GenomeRegistry()
     val history = PopulationHistory(SimConfig.HISTORY_LENGTH)
 
@@ -303,14 +307,14 @@ class World(
 
     /** Fills a fresh dish: [cellCount] cells of [genome] and food up to [foodFraction] of the limit. */
     fun populate(genome: Genome, cellCount: Int, foodFraction: Float) {
-        val r = dishRadius * 0.85f
+        val r = dishRadius * SimConfig.STARTING_CELLS_RADIUS_SHARE
         repeat(cellCount) {
             val (px, py) = randomPointInDisk(r)
             addCell(genome, px, py)
         }
         val foodTarget = (settings.maxFood * foodFraction).toInt()
         while (food.count < foodTarget) {
-            val (px, py) = randomPointInDisk(dishRadius * 0.97f)
+            val (px, py) = randomPointInDisk(dishRadius * SimConfig.FOOD_SPAWN_RADIUS_SHARE)
             if (!addFood(px, py, coated = rng.chance(settings.foodCoat))) break
         }
     }

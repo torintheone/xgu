@@ -75,7 +75,13 @@ class PreviewFrame(
  * Deterministic: the same genome always grows the same way.
  */
 class GrowthPreview(genome: Genome) {
-    private val world = World(SETTINGS, SEED).apply {
+    private val world = World(
+        SETTINGS,
+        SimConfig.PREVIEW_SEED,
+        cellCapacity = PREVIEW_CAPACITY,
+        bondCapacity = PREVIEW_CAPACITY * Mode.MAX_BONDS / 2,
+        foodCapacity = 1,
+    ).apply {
         previewGrowth = SimConfig.PREVIEW_GROWTH_PER_HOUR
         previewCellLimit = SimConfig.PREVIEW_MAX_CELLS
     }
@@ -128,7 +134,8 @@ class GrowthPreview(genome: Genome) {
 
     companion object {
         val STEPS_PER_HOUR = (1.0 / SimConfig.STEP_HOURS).roundToInt()
-        private const val SEED = 20_241_021L
+        /** Cells the preview world has room for: the limit plus a margin for the step that reaches it. */
+        private const val PREVIEW_CAPACITY = SimConfig.PREVIEW_MAX_CELLS * 2
 
         /** A calm dish: no food or light of its own (cells grow anyway), no aging, no deadly walls. */
         private val SETTINGS = SubstrateSettings(
@@ -157,12 +164,10 @@ class GrowthPreview(genome: Genome) {
         }
 
         /** A small picture for the genome bank: the organism once it is grown or after [maxHours]. */
-        fun thumbnail(genome: Genome, maxHours: Int = THUMBNAIL_HOURS): PreviewFrame {
+        fun thumbnail(genome: Genome, maxHours: Int = SimConfig.THUMBNAIL_MAX_HOURS): PreviewFrame {
             val preview = GrowthPreview(genome)
             while (preview.hour < maxHours && preview.world.cells.count < SimConfig.PREVIEW_MAX_CELLS) preview.advanceHour()
             return preview.frame()
         }
-
-        private const val THUMBNAIL_HOURS = 24
     }
 }

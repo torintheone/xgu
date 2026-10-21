@@ -114,7 +114,7 @@ internal class Metabolism(private val world: World) {
         val spread = s.foodClumpSize * SimConfig.FOOD_CLUMP_RADIUS_MAX_UM
         while (world.foodDebt >= 1f) {
             world.foodDebt -= 1f
-            val (cx, cy) = world.randomPointInDisk(dishR * 0.97f)
+            val (cx, cy) = world.randomPointInDisk(dishR * SimConfig.FOOD_SPAWN_RADIUS_SHARE)
             for (k in 0 until clump) {
                 var px = cx
                 var py = cy
@@ -123,7 +123,8 @@ internal class Metabolism(private val world: World) {
                     px += ox
                     py += oy
                 }
-                if (px * px + py * py >= dishR * dishR * 0.97f * 0.97f) continue
+                val limit = dishR * SimConfig.FOOD_SPAWN_RADIUS_SHARE
+                if (px * px + py * py >= limit * limit) continue
                 val coated = world.rng.chance(s.foodCoat)
                 // A particle that lands on a phagocyte is eaten at once, even when the medium is full of food.
                 if (coated || !feedPhagocyteAt(px, py)) {
@@ -164,7 +165,7 @@ internal class Metabolism(private val world: World) {
         val viscous = s.viscosity * SimConfig.VISCOSITY_DRAG
         val dishR = world.dishRadius
         val memory = SimConfig.FOOD_DRIFT_MEMORY_MIN
-        val diffusion = SimConfig.FOOD_DIFFUSION * REFERENCE_VISCOSITY / maxOf(s.viscosity, MIN_VISCOSITY)
+        val diffusion = SimConfig.FOOD_DIFFUSION * SimConfig.FOOD_DRIFT_REFERENCE_VISCOSITY / maxOf(s.viscosity, SimConfig.FOOD_DRIFT_MIN_VISCOSITY)
         val keep = 1f - 1f / memory
         val kick = sqrt(2f * diffusion) / memory
         val rng = world.rng
@@ -175,7 +176,7 @@ internal class Metabolism(private val world: World) {
             var vy = food.vy[k] * keep + kick * rng.nextGaussian()
             // Gravity: the particle sinks or floats at its terminal speed.
             val sink = if (gravity > 0f) {
-                gravity * (SimConfig.FOOD_DENSITY - world.mediumDensity(food.y[k])) * m / maxOf(viscous * r, MIN_DRAG)
+                gravity * (SimConfig.FOOD_DENSITY - world.mediumDensity(food.y[k])) * m / maxOf(viscous * r, SimConfig.FOOD_MIN_DRAG)
             } else {
                 0f
             }
@@ -213,10 +214,6 @@ internal class Metabolism(private val world: World) {
     }
 
     private companion object {
-        const val REFERENCE_VISCOSITY = 50f
-        const val MIN_VISCOSITY = 5f
-        const val MIN_DRAG = 0.01f
-
         val PHAGOCYTE = CellType.PHAGOCYTE.ordinal
         val PHOTOCYTE = CellType.PHOTOCYTE.ordinal
         val FLAGELLOCYTE = CellType.FLAGELLOCYTE.ordinal

@@ -22,7 +22,7 @@ internal class Physics(private val world: World) {
         private set
 
     /** Cells that touched the wall during the last step. */
-    val touchingWall = BooleanArray(SimConfig.CELL_CAPACITY)
+    val touchingWall = BooleanArray(world.cells.capacity)
 
     private var dragged = -1
 
@@ -209,14 +209,14 @@ internal class Physics(private val world: World) {
         var rest = b.rest[id]
         if (c.type[i] == MYOCYTE) {
             val front = cos(anchorI)
-            if (front > MYOCYTE_SECTOR || front < -MYOCYTE_SECTOR) {
+            if (front > SimConfig.MYOCYTE_SECTOR_COS || front < -SimConfig.MYOCYTE_SECTOR_COS) {
                 rest -= c.activity[i] * SimConfig.MYOCYTE_PULL_UM
                 anchorI += if (front > 0f) c.activity2[i] * SimConfig.MYOCYTE_BEND else -c.activity2[i] * SimConfig.MYOCYTE_BEND
             }
         }
         if (!wall && c.type[j] == MYOCYTE) {
             val front = cos(anchorJ)
-            if (front > MYOCYTE_SECTOR || front < -MYOCYTE_SECTOR) {
+            if (front > SimConfig.MYOCYTE_SECTOR_COS || front < -SimConfig.MYOCYTE_SECTOR_COS) {
                 rest -= c.activity[j] * SimConfig.MYOCYTE_PULL_UM
                 anchorJ += if (front > 0f) c.activity2[j] * SimConfig.MYOCYTE_BEND else -c.activity2[j] * SimConfig.MYOCYTE_BEND
             }
@@ -414,8 +414,5 @@ internal class Physics(private val world: World) {
         val BUOYOCYTE = CellType.BUOYOCYTE.ordinal
         val CILIOCYTE = CellType.CILIOCYTE.ordinal
         val MYOCYTE = CellType.MYOCYTE.ordinal
-
-        /** A myocyte acts on bonds within ±60° of its front or back: cos 60° = 0.5. */
-        const val MYOCYTE_SECTOR = 0.5f
     }
 }

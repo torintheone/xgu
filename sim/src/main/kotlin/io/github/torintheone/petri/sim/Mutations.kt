@@ -35,7 +35,7 @@ internal class Mutations(private val world: World) {
         val rng = world.rng
         if (!rng.chance(SimConfig.STEP_HOURS_F / SimConfig.INFECTION_INTERVAL_HOURS)) return
         val genome = Mutator.randomGenome(rng, s.genePool) ?: return
-        val (px, py) = world.randomPointInDisk(world.dishRadius * 0.9f)
+        val (px, py) = world.randomPointInDisk(world.dishRadius * SimConfig.INFECTION_RADIUS_SHARE)
         world.addCell(genome, px, py)
     }
 }
@@ -145,7 +145,7 @@ object Mutator {
     fun randomGenome(rng: Rng, genePool: Set<CellType>): Genome? {
         val pool = genePool.toList().sorted()
         if (pool.isEmpty()) return null
-        val used = 1 + rng.nextInt(RANDOM_GENOME_MODES)
+        val used = 1 + rng.nextInt(SimConfig.RANDOM_GENOME_MAX_MODES)
         val modes = MutableList(Mode.MODE_COUNT) { index ->
             var mode = Mode.default(index)
             if (index < used) {
@@ -156,11 +156,11 @@ object Mutator {
                     child2Mode = rng.nextInt(used),
                     child1KeepBonds = rng.nextBoolean(),
                     child2KeepBonds = rng.nextBoolean(),
-                    splitMass = rng.nextFloat(RANDOM_SPLIT_MASS.start, RANDOM_SPLIT_MASS.endInclusive),
-                    splitRatio = rng.nextFloat(RANDOM_SPLIT_RATIO.start, RANDOM_SPLIT_RATIO.endInclusive),
-                    splitAngle = SNAP_ANGLE * rng.nextInt(ANGLE_STEPS),
-                    child1Angle = SNAP_ANGLE * rng.nextInt(ANGLE_STEPS),
-                    child2Angle = SNAP_ANGLE * rng.nextInt(ANGLE_STEPS),
+                    splitMass = rng.nextFloat(SimConfig.RANDOM_SPLIT_MASS_MIN, SimConfig.RANDOM_SPLIT_MASS_MAX),
+                    splitRatio = rng.nextFloat(SimConfig.RANDOM_SPLIT_RATIO_MIN, SimConfig.RANDOM_SPLIT_RATIO_MAX),
+                    splitAngle = randomAngle(rng),
+                    child1Angle = randomAngle(rng),
+                    child2Angle = randomAngle(rng),
                     adhesinStiffness = rng.nextFloat(),
                     nutrientPriority = rng.nextFloat(),
                     red = rng.nextFloat(),
@@ -173,10 +173,11 @@ object Mutator {
         return Genome(initialMode = 0, modes = modes).sanitized()
     }
 
+    private fun randomAngle(rng: Rng): Float {
+        val step = SimConfig.RANDOM_ANGLE_STEP_DEGREES
+        return step * rng.nextInt((360f / step).toInt())
+    }
+
+    /** Kinds of structural mutation in [structural]. */
     private const val STRUCTURAL_KINDS = 6
-    private const val RANDOM_GENOME_MODES = 4
-    private val RANDOM_SPLIT_MASS = 1.5f..3.4f
-    private val RANDOM_SPLIT_RATIO = 0.3f..0.7f
-    private const val SNAP_ANGLE = 15f
-    private const val ANGLE_STEPS = 24
 }

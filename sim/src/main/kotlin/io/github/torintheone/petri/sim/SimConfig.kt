@@ -131,6 +131,9 @@ object SimConfig {
     /** How much a myocyte shortens (contraction 1) or lengthens (−1) its front and back bonds, µm. */
     const val MYOCYTE_PULL_UM: Float = 6f
 
+    /** A myocyte acts on bonds within ±60° of its front or back: this is cos 60°. */
+    const val MYOCYTE_SECTOR_COS: Float = 0.5f
+
     /** How far a myocyte turns its front and back attachment points at bend ±1, radians (35°). */
     const val MYOCYTE_BEND: Float = 0.61f
 
@@ -171,6 +174,10 @@ object SimConfig {
 
     // ---- Food ----
 
+    /** New food and the starting cells land within this share of the dish radius, clear of the wall. */
+    const val FOOD_SPAWN_RADIUS_SHARE: Float = 0.97f
+    const val STARTING_CELLS_RADIUS_SHARE: Float = 0.85f
+
     /** Food particles per hour at «Скорость появления пищи» 1. */
     const val FOOD_RATE_MAX_PER_HOUR: Float = 300f
 
@@ -198,6 +205,13 @@ object SimConfig {
 
     /** How long a food particle keeps its drift direction, min: longer looks smoother. */
     const val FOOD_DRIFT_MEMORY_MIN: Float = 15f
+
+    /** Viscosity at which food drifts at [FOOD_DIFFUSION]; below the minimum the drift stops growing. */
+    const val FOOD_DRIFT_REFERENCE_VISCOSITY: Float = 50f
+    const val FOOD_DRIFT_MIN_VISCOSITY: Float = 5f
+
+    /** Smallest drag a sinking food particle meets, so a medium without viscosity cannot fling it away. */
+    const val FOOD_MIN_DRAG: Float = 0.01f
 
     // ---- Light ----
 
@@ -336,6 +350,21 @@ object SimConfig {
     /** «Заражение случайными клетками»: on average one newcomer per this many hours. */
     const val INFECTION_INTERVAL_HOURS: Float = 4f
 
+    /** Newcomers land within this share of the dish radius. */
+    const val INFECTION_RADIUS_SHARE: Float = 0.9f
+
+    /** A random newcomer's genome uses up to this many modes, which refer only to each other. */
+    const val RANDOM_GENOME_MAX_MODES: Int = 4
+
+    /** A random newcomer divides at a mass in this range (ng) and gives child 1 this share of it. */
+    const val RANDOM_SPLIT_MASS_MIN: Float = 1.5f
+    const val RANDOM_SPLIT_MASS_MAX: Float = 3.4f
+    const val RANDOM_SPLIT_RATIO_MIN: Float = 0.3f
+    const val RANDOM_SPLIT_RATIO_MAX: Float = 0.7f
+
+    /** A random newcomer's angles are multiples of this, degrees. */
+    const val RANDOM_ANGLE_STEP_DEGREES: Float = 15f
+
     // ---- Growth preview (genome editor) ----
 
     /** The preview organism stops dividing at this many cells. */
@@ -349,6 +378,12 @@ object SimConfig {
 
     /** The preview dish is the largest allowed, so the walls rarely get in the way, mm. */
     const val PREVIEW_DISH_DIAMETER_MM: Float = 3f
+
+    /** The preview's random numbers start from this, so a genome always grows the same way. */
+    const val PREVIEW_SEED: Long = 20_241_021L
+
+    /** A genome bank picture shows the organism at 64 cells or after this many hours, whichever comes first. */
+    const val THUMBNAIL_MAX_HOURS: Int = 24
 
     // ---- Statistics ----
 

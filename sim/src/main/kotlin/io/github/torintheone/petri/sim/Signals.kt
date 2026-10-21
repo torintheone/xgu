@@ -14,10 +14,10 @@ import kotlin.math.sqrt
  */
 internal class Signals(private val world: World) {
     /** What each cell puts into each channel this step, before clamping to ±1. */
-    private val injection = FloatArray(SimConfig.CELL_CAPACITY * Cells.SIGNALS)
+    private val injection = FloatArray(world.cells.capacity * Cells.SIGNALS)
 
     /** Signal levels before this step's exchange along bonds. */
-    private val before = FloatArray(SimConfig.CELL_CAPACITY * Cells.SIGNALS)
+    private val before = FloatArray(world.cells.capacity * Cells.SIGNALS)
 
     fun run() {
         val c = world.cells
