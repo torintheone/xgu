@@ -53,6 +53,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    packaging {
+        jniLibs {
+            // SPEC: the APK has no native code. Compose brings androidx.graphics:graphics-path, whose JNI library
+            // only backs Path segment iteration, which the app never does (see DECISIONS.md).
+            excludes += "**/libandroidx.graphics.path.so"
+        }
+    }
+
     buildFeatures {
         buildConfig = true
         compose = true
