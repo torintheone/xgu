@@ -271,6 +271,44 @@ object SimConfig {
     const val NITROCYTE_NITRATES_PER_HOUR: Float = 2f
     const val SECROCYTE_NITRATES_PER_HOUR: Float = 0.5f
 
+    // ---- Signals ----
+
+    /** Each step a bond evens out its cells' signals by up to this share (divided among the busier cell's bonds). */
+    const val SIGNAL_SHARE_PER_STEP: Float = 0.5f
+
+    /** Signals relax towards their source's output, or towards 0, at this rate per hour: about 10 minutes. */
+    const val SIGNAL_DECAY_PER_HOUR: Float = 6f
+
+    /** A sensor at «Чувствительность» 1 puts out this many times the strength of what it senses (then clamped to ±1). */
+    const val SENSE_GAIN_MAX: Float = 2f
+
+    /** Sensors notice things up to this far from their centre, µm. */
+    const val SENSE_RADIUS_UM: Float = 160f
+
+    /** A thing this far away counts half as much as one right at the sensor, µm: weight 1 / (1 + (d/scale)²). */
+    const val SENSE_SCALE_UM: Float = 40f
+
+    /** Speed at which the «Скорость» sense gives 1, µm/min. */
+    const val SPEED_SENSE_SCALE: Float = 5f
+
+    /** A secrocyte giving off the smell of food at full intensity smells like this many food particles. */
+    const val FOOD_SMELL_STRENGTH: Float = 3f
+
+    /** Neurocyte oscillator at «Частота генератора» 1, cycles per game hour. */
+    const val OSCILLATOR_MAX_CYCLES_PER_HOUR: Float = 2f
+
+    /** A stemocyte takes a path when the path's value is above this (SPEC: «сигнал пути > 0,5»). */
+    const val STEMOCYTE_THRESHOLD: Float = 0.5f
+
+    /** Secretions reach cells whose surface is this close to the secrocyte's surface, µm. */
+    const val SECRETION_RADIUS_UM: Float = 25f
+
+    /** Mass cyanide drains from each reached cell per hour at full intensity, ng. */
+    const val CYANIDE_DRAIN_PER_HOUR: Float = 4f
+
+    /** Chance per hour that lipase at full intensity strips a reached food particle or dissolves a reached lipocyte. */
+    const val LIPASE_PER_HOUR: Float = 6f
+
     // ---- Evolution ----
 
     /**

@@ -402,4 +402,5 @@ val Preset.title: Int
         Preset.ARC -> R.string.preset_arc
         Preset.PHOTOCYTE_COLONY -> R.string.preset_photocyte_colony
         Preset.SWIMMER -> R.string.preset_swimmer
+        Preset.SMART_SWIMMER -> R.string.preset_smart_swimmer
     }

@@ -81,6 +81,7 @@ class World(
 
     internal val physics = Physics(this)
     internal val behaviors = Behaviors(this)
+    private val signals = Signals(this)
     private val metabolism = Metabolism(this)
     private val divisions = Divisions(this)
     private val mutations = Mutations(this)
@@ -100,6 +101,7 @@ class World(
         behaviors.prepare()
         physics.run()
         behaviors.afterMovement()
+        signals.run()
         metabolism.run()
         divisions.run()
         mutations.run()
@@ -463,10 +465,17 @@ class World(
                 i++
                 continue
             }
-            if (previewGrowth < 0f && settings.corpsesBecomeFood) {
-                val share = if (flags and Cells.FLAG_ALL_TO_FOOD != 0) 1f else SimConfig.CORPSE_FOOD_FRACTION
-                val m = cells.mass[i] * share
-                if (m > 0f) addFood(cells.x[i], cells.y[i], m)
+            val dissolved = flags and Cells.FLAG_ALL_TO_FOOD != 0
+            if (previewGrowth < 0f && (settings.corpsesBecomeFood || dissolved)) {
+                // The remains fall apart into ordinary-sized particles spread over where the cell was.
+                var m = cells.mass[i] * if (dissolved) 1f else SimConfig.CORPSE_FOOD_FRACTION
+                val r = radiusOf(cells.mass[i])
+                while (m > SimConfig.FOOD_MASS_MIN / 2f) {
+                    val part = minOf(m, SimConfig.FOOD_MASS_MAX)
+                    val (ox, oy) = randomPointInDisk(r)
+                    addFood(cells.x[i] + ox, cells.y[i] + oy, part)
+                    m -= part
+                }
             }
             removeCellAt(i)
         }

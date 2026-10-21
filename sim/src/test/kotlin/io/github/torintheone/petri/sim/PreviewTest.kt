@@ -61,6 +61,27 @@ class PreviewTest {
     }
 
     @Test
+    fun `the smart swimmer grows into a row of mouth, tail, sensor, tail, mouth`() {
+        val frame = GrowthPreview.frames(Preset.SMART_SWIMMER.genome("smart"), hours = 3).last()
+        assertEquals(5, frame.cellCount)
+        // The row runs across the front (which points up): order the cells along it.
+        val order = (0 until frame.cellCount).sortedBy { frame.x(it) }
+        assertEquals(
+            listOf(CellType.PHAGOCYTE, CellType.FLAGELLOCYTE, CellType.STEREOCYTE, CellType.FLAGELLOCYTE, CellType.PHAGOCYTE),
+            order.map { frame.type(it) },
+        )
+        // A straight row: every cell close to the line through both ends.
+        val (a, b) = order.first() to order.last()
+        val dx = frame.x(b) - frame.x(a)
+        val dy = frame.y(b) - frame.y(a)
+        val length = kotlin.math.hypot(dx, dy)
+        for (i in order) {
+            val off = abs((frame.x(i) - frame.x(a)) * dy - (frame.y(i) - frame.y(a)) * dx) / length
+            assertTrue(off < 12f, "cell $i is $off µm off the row")
+        }
+    }
+
+    @Test
     fun `tapping a preview cell finds its mode`() {
         val frame = GrowthPreview.frames(Preset.ARC.genome("arc"), hours = 10).last()
         val modes = (0 until frame.cellCount).map { frame.mode(it) }.toSet()
