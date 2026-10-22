@@ -115,6 +115,9 @@ class Cells(val capacity: Int) {
 
         /** A flagellocyte whose tail end is glued: the tail does not work. */
         const val FLAG_TAIL_BLOCKED = 16
+
+        /** Planted by the player's synthesizer, or descended from such a cell: what level goals count. */
+        const val FLAG_PLAYER = 32
     }
 }
 

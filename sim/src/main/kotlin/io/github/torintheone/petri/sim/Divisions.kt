@@ -79,6 +79,7 @@ internal class Divisions(private val world: World) {
             nitrates = nitrates,
         )
         if (j < 0) return
+        c.flags[j] = c.flags[j] or (c.flags[i] and Cells.FLAG_PLAYER)
         c.vx[j] = c.vx[i]
         c.vy[j] = c.vy[i]
         c.spin[j] = c.spin[i]

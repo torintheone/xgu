@@ -1,6 +1,7 @@
 package io.github.torintheone.petri.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -115,8 +115,10 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
         }
     }
     val parameters: @Composable (Modifier) -> Unit = { listModifier ->
+        // Each editor starts at its top.
+        val scroll = rememberSaveable(simple, saver = ScrollState.Saver) { ScrollState(0) }
         Column(
-            modifier = listModifier.verticalScroll(rememberScrollState()),
+            modifier = listModifier.verticalScroll(scroll),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (simple) {

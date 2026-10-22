@@ -84,6 +84,9 @@ class World(
     /** Growth preview: the organism stops dividing at this many cells; 0 leaves the limit to the settings. */
     var previewCellLimit: Int = 0
 
+    /** The campaign level played in this dish, if any; its verdict is renewed every [JUDGE_STEPS] steps. */
+    var level: LevelSession? = null
+
     /** Most cells the dish may hold now. */
     internal val cellLimit: Int get() = if (previewCellLimit > 0) previewCellLimit else settings.maxCells
 
@@ -93,6 +96,7 @@ class World(
     private val metabolism = Metabolism(this)
     private val divisions = Divisions(this)
     private val mutations = Mutations(this)
+    private val referee = Referee(this)
     internal val foodGrid = SpatialGrid()
 
     val ageHours: Double get() = stepCount * SimConfig.STEP_HOURS
@@ -117,6 +121,12 @@ class World(
         metabolism.updateFood()
         advanceLight()
         if (stepCount % HISTORY_STEPS == 0L) history.add(ageHours.toFloat(), cells.count, food.count, genomes.liveCount)
+        if (stepCount % JUDGE_STEPS == 0L) judgeLevel()
+    }
+
+    /** Renews the verdict on the level played here, if any (see [LevelSession.status]). */
+    fun judgeLevel() {
+        level?.let(referee::judge)
     }
 
     /** Light at a point, 0..1 (SPEC «Модель света»). */
@@ -162,6 +172,31 @@ class World(
         val slot = genomes.slotFor(genome)
         val i = spawnCell(slot, mode, px, py, angle, mass, nextOrganism++, mirrored = false, nitrates = 1f)
         return if (i >= 0) cells.uid[i] else 0
+    }
+
+    /**
+     * The synthesizer: plants a cell of [genome] for the player. In a level the cell must keep to its rules: plantings
+     * left, the planting zone and the allowed cell types.
+     */
+    fun plant(genome: Genome, px: Float, py: Float): PlantResult {
+        val session = level
+        if (session != null) {
+            val rules = session.level
+            when {
+                session.status.outcome != LevelOutcome.PLAYING -> return PlantResult.LEVEL_OVER
+                session.plantingsLeft == 0 -> return PlantResult.NO_PLANTINGS_LEFT
+                rules.plantZone?.contains(px, py) == false -> return PlantResult.OUTSIDE_ZONE
+                rules.forbiddenTypes(genome).isNotEmpty() -> return PlantResult.FORBIDDEN_TYPES
+            }
+        }
+        val i = indexOfUid(addCell(genome, px, py))
+        if (i < 0) return PlantResult.NO_ROOM
+        cells.flags[i] = cells.flags[i] or Cells.FLAG_PLAYER
+        if (session != null) {
+            session.plantingsUsed++
+            referee.judge(session)
+        }
+        return PlantResult.PLANTED
     }
 
     /** Puts a food particle at a point (the «подкормка» tool on empty medium). */
@@ -606,6 +641,9 @@ class World(
         const val PI_F = 3.1415927f
         const val TWO_PI = 6.2831855f
         val HISTORY_STEPS = (SimConfig.HISTORY_INTERVAL_HOURS / SimConfig.STEP_HOURS).roundToLong()
+
+        /** A level's goals are checked every this many steps: ten game minutes. */
+        const val JUDGE_STEPS = 10L
 
         /** Wraps an angle into (−π, π]. */
         fun wrapPi(a: Float): Float {

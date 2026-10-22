@@ -23,6 +23,8 @@ data class SimStats(
     val speciesCount: Int = 0,
     /** The cell under diagnostics, or null when none is selected or it has died. */
     val selected: CellInfo? = null,
+    /** The verdict on the campaign level played in the dish, or null outside the campaign. */
+    val level: LevelStatus? = null,
 ) {
     companion object {
         val EMPTY = SimStats(ageHours = 0.0, cellCount = 0, foodCount = 0)
@@ -216,6 +218,7 @@ class SimulationRunner(world: World) : AutoCloseable {
             foodCount = world.foodCount,
             speciesCount = world.speciesCount,
             selected = world.cellInfo(selectedUid),
+            level = world.level?.status,
         )
         val stamp = world.history.size * 1_000_003L + world.stepCount / World.HISTORY_STEPS
         if (stamp != historyStamp) {
