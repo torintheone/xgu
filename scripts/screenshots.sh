@@ -15,13 +15,15 @@ adb install -r "$APK"
 adb logcat -c
 
 # A clean status bar: the same clock and full signal on every picture.
-adb shell settings put global sysui_demo_allowed 1
 demo() { adb shell am broadcast -a com.android.systemui.demo -e command "$@" > /dev/null; }
-demo enter
-demo clock -e hhmm 1200
-demo battery -e level 100 -e plugged false
-demo network -e wifi show -e level 4 -e mobile show -e level 4 -e datatype none
-demo notifications -e visible false
+clean_status_bar() {
+  adb shell settings put global sysui_demo_allowed 1
+  demo enter
+  demo clock -e hhmm 1200
+  demo battery -e level 100 -e plugged false
+  demo network -e wifi show -e level 4 -e mobile show -e level 4 -e datatype none
+  demo notifications -e visible false
+}
 
 # Brings the app forward with the given extras; FLAG_ACTIVITY_SINGLE_TOP delivers them to the open screen.
 open_app() {
@@ -44,6 +46,7 @@ swipe_up() {
 
 open_app
 sleep 40 # the starting dish grows for 40 game hours
+clean_status_bar # by now the system interface is surely up
 
 open_app --es petri.tab microscope
 shoot 1-microscope 3
@@ -69,6 +72,8 @@ adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
 open_app --es petri.tab microscope
 shoot 8-microscope-landscape 4
+open_app --es petri.tab genome
+shoot 9-genome-landscape 3
 adb shell settings put system user_rotation 0
 
 demo exit
