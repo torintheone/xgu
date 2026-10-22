@@ -77,4 +77,17 @@ class SimulationRunnerTest {
         assertTrue(done.await(5, TimeUnit.SECONDS), "the simulation thread did not answer")
         return steps.get()
     }
+
+    @Test
+    fun `commands posted before close still run`() {
+        repeat(20) {
+            val runner = SimulationRunner(World(SubstrateSettings(), 1L))
+            runner.timeMode = TimeMode.INCUBATE
+            runner.start()
+            val ran = java.util.concurrent.atomic.AtomicInteger()
+            repeat(5) { runner.post { ran.incrementAndGet() } }
+            runner.close()
+            assertEquals(5, ran.get(), "every command ran exactly once")
+        }
+    }
 }

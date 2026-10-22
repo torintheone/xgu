@@ -119,12 +119,16 @@ class SimulationRunner(world: World) : AutoCloseable {
     /** The newest snapshot. Call it from one thread only, the renderer's (see [TripleBuffer]). */
     fun latestSnapshot(): WorldSnapshot = snapshots.latest()
 
-    /** Stops the simulation thread; the runner cannot be started again. */
+    /**
+     * Stops the simulation thread; the runner cannot be started again. Commands still waiting (such as the last
+     * autosave) run here, once the thread has finished and the world is no longer in use.
+     */
     override fun close() {
         running = false
         val simulationThread = thread ?: return
         LockSupport.unpark(simulationThread)
         simulationThread.join(SimConfig.STOP_TIMEOUT_MS)
+        if (!simulationThread.isAlive) runCommands()
     }
 
     private fun wake() {

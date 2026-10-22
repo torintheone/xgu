@@ -42,6 +42,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -61,6 +63,16 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     /** File writes that should finish even when the screen goes away, such as the autosave. */
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** One autosave at a time: two quick trips to the background must not write the same files at once. */
+    private val autosaveLock = Mutex()
+
+    /**
+     * False until the last autosave is back in place. Leaving the app before that must not save the empty
+     * starting dish over the person's real one.
+     */
+    @Volatile
+    private var restored = false
 
     val runner: SimulationRunner
     val camera = DishCamera()
@@ -120,8 +132,9 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     /** Brings back the dish and genome from the last autosave, or starts a fresh dish. */
     private suspend fun restore() {
         val (dish, genome) = withContext(Dispatchers.IO) {
-            val dish = storage.readAutosaveDish()?.let { runCatching { DishCodec.decode(it) }.getOrNull() }
-            val genome = storage.readAutosaveGenome()?.let { runCatching { GenomeCodec.decode(it) }.getOrNull() }
+            // A missing, unreadable or broken autosave just means a fresh start.
+            val dish = runCatching { storage.readAutosaveDish()?.let(DishCodec::decode) }.getOrNull()
+            val genome = runCatching { storage.readAutosaveGenome()?.let(GenomeCodec::decode) }.getOrNull()
             dish to genome
         }
         genome?.let(editor::load)
@@ -131,7 +144,8 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         } else {
             runner.post { it.populate(Genome.default(), cellCount = STARTING_CELLS, foodFraction = STARTING_FOOD) }
         }
-        withContext(Dispatchers.IO) { offerPresets() }
+        restored = true
+        withContext(Dispatchers.IO) { runCatching { offerPresets() } }
         refreshGenbank()
         refreshDishes()
     }
@@ -165,10 +179,13 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     }
 
     private fun autosave() {
+        if (!restored) return
         val genome = editor.genome.value
         runner.post { world ->
             val state = world.saveState()
-            ioScope.launch { runCatching { storage.writeAutosave(DishCodec.encode(state), genome) } }
+            ioScope.launch {
+                autosaveLock.withLock { runCatching { storage.writeAutosave(DishCodec.encode(state), genome) } }
+            }
         }
     }
 
@@ -185,7 +202,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
                 if (uid != 0) world.feedCell(uid, FEED_MASS) else world.addFood(x, y)
             }
             Tool.DELETE -> runner.post { world -> world.removeCell(world.cellAt(x, y, slack)) }
-            Tool.DIAGNOSTICS -> runner.post { world -> select(world.cellAt(x, y, slack)) }
+            Tool.DIAGNOSTICS -> runner.post { world ->
+                val uid = world.cellAt(x, y, slack)
+                viewModelScope.launch { select(uid) }
+            }
             Tool.TWEEZERS -> Unit
         }
     }
@@ -271,7 +291,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     fun deleteGenome(entry: GenbankEntry) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { storage.deleteGenome(entry.name) }
+            withContext(Dispatchers.IO) { runCatching { storage.deleteGenome(entry.name) } }
             refreshGenbank()
         }
     }
@@ -308,11 +328,13 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     fun thumbnailKey(entry: GenbankEntry): String = "${entry.name}@${entry.modified}"
 
     private suspend fun refreshGenbank() {
-        val list = withContext(Dispatchers.IO) { storage.genomes() }
+        val list = withContext(Dispatchers.IO) { runCatching { storage.genomes() }.getOrDefault(emptyList()) }
         genbankState.value = list
         for (entry in list) {
             val key = thumbnailKey(entry)
-            if (key !in thumbnails) thumbnails[key] = withContext(Dispatchers.Default) { GrowthPreview.thumbnail(entry.genome) }
+            if (key in thumbnails) continue
+            val picture = withContext(Dispatchers.Default) { runCatching { GrowthPreview.thumbnail(entry.genome) }.getOrNull() }
+            if (picture != null) thumbnails[key] = picture
         }
     }
 
@@ -345,7 +367,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     fun deleteDish(entry: DishEntry) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { storage.deleteDish(entry.name) }
+            withContext(Dispatchers.IO) { runCatching { storage.deleteDish(entry.name) } }
             refreshDishes()
         }
     }
@@ -371,7 +393,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     }
 
     private suspend fun refreshDishes() {
-        dishesState.value = withContext(Dispatchers.IO) { storage.dishes() }
+        dishesState.value = withContext(Dispatchers.IO) { runCatching { storage.dishes() }.getOrDefault(emptyList()) }
     }
 
     // ---- Messages ----
