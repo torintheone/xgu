@@ -13,29 +13,39 @@
     <string name="stat_species">Виды</string>
     <string name="hours_value">%1$s h</string>
 
+    <string name="hud_paused">Пауза</string>
+    <string name="hud_fast">Возраст ×%1$s</string>
+
     <string name="graph_show">Показать график численности</string>
     <string name="graph_hide">Скрыть график численности</string>
     <string name="graph_empty">График появится через час игрового времени.</string>
-    <string name="graph_span">с %1$s h по %2$s h</string>
-    <string name="graph_value">%1$d (макс. %2$d)</string>
+    <string name="graph_peaks">макс.: клетки %1$d · пища %2$d · виды %3$d</string>
 
     <string name="time_freeze">Заморозка</string>
     <string name="time_observe">Наблюдение</string>
     <string name="time_incubate">Инкубация</string>
+    <string name="hint_freeze">время остановлено, клетки можно переносить пинцетом</string>
+    <string name="hint_observe">час жизни чашки за секунду</string>
+    <string name="hint_incubate">время идёт так быстро, как может телефон</string>
 
     <string name="tool_synthesizer">Синтезатор</string>
     <string name="tool_tweezers">Пинцет</string>
     <string name="tool_feed">Подкормка</string>
     <string name="tool_delete">Удаление</string>
     <string name="tool_diagnostics">Диагностика</string>
+    <string name="hint_synthesizer">нажмите на чашку — там появится клетка из генома в редакторе</string>
+    <string name="hint_tweezers">потяните клетку пальцем, чтобы передвинуть её</string>
+    <string name="hint_feed">нажмите на клетку, чтобы подкормить её, или на пустое место — появится пища</string>
+    <string name="hint_delete">нажмите на клетку, чтобы убрать её из чашки</string>
+    <string name="hint_diagnostics">нажмите на клетку, чтобы увидеть её показатели</string>
 
+    <string name="specimen_title">Образец</string>
     <string name="diagnostics_title">M%1$d · %2$s</string>
     <string name="close">Закрыть</string>
     <string name="diag_mass">Масса</string>
     <string name="mass_value">%1$s нг</string>
     <string name="diag_nitrates">Нитраты</string>
     <string name="diag_bonds">Связи</string>
-    <string name="diag_signals">S1 %1$s · S2 %2$s · S3 %3$s · S4 %4$s</string>
     <string name="diag_genome">Геном №%1$d, предок №%2$d</string>
     <string name="diag_follow">Следить</string>
     <string name="diag_copy_genome">Копировать геном</string>
@@ -66,6 +76,13 @@
     <string name="about_title">О приложении</string>
     <string name="about_text">Песочница эволюции клеток. Соберите геном из 40 режимов, вырастите из одной клетки организм и посмотрите, кто выживет в чашке Петри: среда сама отбирает тех, кто лучше ест и размножается.\n\nКод, графика и тексты созданы с нуля для этого проекта с помощью Claude Code.\n\nСохранения хранятся только на этом телефоне; геномами можно делиться файлами.</string>
 
+    <!-- Controls. -->
+    <string name="help_open">Справка</string>
+    <string name="step_down">Меньше</string>
+    <string name="step_up">Больше</string>
+    <string name="section_expand">Развернуть</string>
+    <string name="section_collapse">Свернуть</string>
+
     <!-- Dialogs. -->
     <string name="dialog_ok">Понятно</string>
     <string name="dialog_save">Сохранить</string>
@@ -81,6 +98,10 @@
     <string name="editor_snapping">Привязка</string>
     <string name="editor_mode_title">Режим M%1$d</string>
     <string name="editor_initial">Начальный</string>
+    <string name="preview_hour">t = %1$d h</string>
+    <string name="preview_cells">n = %1$d</string>
+    <string name="preview_play">Показать рост с начала</string>
+    <string name="preview_stop">Остановить показ роста</string>
     <string name="param_cell_type">Тип клетки</string>
     <string name="section_division">Деление</string>
     <string name="param_split_mass">Масса деления</string>
@@ -231,7 +252,6 @@
 
     <!-- Dish files. -->
     <string name="env_dish">Чашка</string>
-    <string name="env_dish_state">Возраст %1$s h · клеток: %2$d · пищи: %3$d</string>
     <string name="env_save_dish">Сохранить чашку</string>
     <string name="env_load_dish">Загрузить</string>
     <string name="env_sterilize">Стерилизовать</string>
@@ -271,7 +291,7 @@
     <string name="env_nitrates">Нитраты</string>
     <string name="env_evolution">Эволюция</string>
     <string name="env_radiation">Радиация</string>
-    <string name="radiation_value">%1$s · мутаций: %2$s на 100 клеток в час</string>
+    <string name="radiation_note">≈ %1$s мутаций на 100 клеток в час</string>
     <string name="env_point_mutations_only">Только точечные мутации</string>
     <string name="env_random_infection">Заражение случайными клетками</string>
     <string name="env_gene_pool">Генофонд</string>

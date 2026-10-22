@@ -2,33 +2,35 @@ package io.github.torintheone.petri.ui
 
 import android.text.format.DateUtils
 import android.text.format.Formatter
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,10 +41,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,22 +58,25 @@ import io.github.torintheone.petri.sim.CellType
 import io.github.torintheone.petri.sim.SimConfig
 import io.github.torintheone.petri.sim.SimStats
 import io.github.torintheone.petri.sim.SubstrateSettings
+import io.github.torintheone.petri.ui.theme.Lab
+import io.github.torintheone.petri.ui.theme.LabType
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
-/** «Среда» (SPEC «Интерфейс»): the dish buttons on top, then the parameters of the medium in groups. */
+/** «Среда» (SPEC «Интерфейс»): the dish and its files on top, then the parameters of the medium in groups. */
 @Composable
 fun EnvironmentScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
+            .windowInsetsPadding(WindowInsets.safeDrawing)
             .verticalScroll(rememberScrollState())
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        Eyebrow(stringResource(R.string.tab_environment), Modifier.padding(start = 2.dp, top = 4.dp))
         DishCard(viewModel)
         SettingsEditor(viewModel)
-        About(Modifier.padding(top = 16.dp))
+        About(Modifier.padding(top = 6.dp))
     }
 }
 
@@ -81,11 +88,13 @@ private fun About(modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
         Text(
             text = version,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.weight(1f),
+            style = LabType.Mono,
+            color = Lab.TextFaint,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 2.dp),
         )
-        TextButton(onClick = { open = true }) { Text(stringResource(R.string.about_title)) }
+        TextButton(onClick = { open = true }) { Text(stringResource(R.string.about_title), color = Lab.Accent) }
     }
     if (open) {
         AlertDialog(
@@ -93,11 +102,13 @@ private fun About(modifier: Modifier = Modifier) {
             confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.dialog_ok)) } },
             title = { Text(version) },
             text = { Text(stringResource(R.string.about_text)) },
+            containerColor = Lab.Raised,
+            textContentColor = Lab.TextDim,
         )
     }
 }
 
-/** «Сохранить чашку», «Загрузить», «Стерилизовать». */
+/** «Сохранить чашку», «Загрузить», «Стерилизовать» under the readings of the dish. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DishCard(viewModel: PetriViewModel) {
@@ -107,27 +118,25 @@ private fun DishCard(viewModel: PetriViewModel) {
     var loading by rememberSaveable { mutableStateOf(false) }
     var sterilizing by rememberSaveable { mutableStateOf(false) }
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.env_dish), style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = stringResource(
-                    R.string.env_dish_state,
-                    formatNumber(stats.ageHours, 1),
-                    stats.cellCount,
-                    stats.foodCount,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Button(onClick = { saving = true }) { Text(stringResource(R.string.env_save_dish)) }
-                OutlinedButton(onClick = { loading = true }) { Text(stringResource(R.string.env_load_dish)) }
-                OutlinedButton(onClick = { sterilizing = true }) { Text(stringResource(R.string.env_sterilize)) }
-            }
+    Panel(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_tab_microscope), contentDescription = null, tint = Lab.Accent, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+            Eyebrow(stringResource(R.string.env_dish), color = Lab.Text)
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
+            modifier = Modifier.padding(top = 12.dp, bottom = 14.dp),
+        ) {
+            Readout(stringResource(R.string.stat_age), stringResource(R.string.hours_value, formatNumber(stats.ageHours, 1)))
+            Readout(stringResource(R.string.stat_cells), stats.cellCount.toString(), dot = Lab.Accent)
+            Readout(stringResource(R.string.stat_food), stats.foodCount.toString(), dot = Lab.Lime)
+            Readout(stringResource(R.string.stat_species), stats.speciesCount.toString(), dot = Lab.Violet)
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LabButton(stringResource(R.string.env_save_dish), onClick = { saving = true }, icon = R.drawable.ic_save, kind = ButtonKind.PRIMARY)
+            LabButton(stringResource(R.string.env_load_dish), onClick = { loading = true }, icon = R.drawable.ic_open)
+            LabButton(stringResource(R.string.env_sterilize), onClick = { sterilizing = true }, icon = R.drawable.ic_sterilize, kind = ButtonKind.DANGER)
         }
     }
 
@@ -178,7 +187,7 @@ private fun LoadDishDialog(dishes: List<DishEntry>, onLoad: (DishEntry) -> Unit,
                 Text(
                     text = stringResource(R.string.dialog_load_dish_note),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Lab.TextDim,
                 )
                 if (dishes.isEmpty()) {
                     Text(stringResource(R.string.dishes_empty), style = MaterialTheme.typography.bodyMedium)
@@ -193,26 +202,31 @@ private fun LoadDishDialog(dishes: List<DishEntry>, onLoad: (DishEntry) -> Unit,
                                     .padding(vertical = 4.dp),
                             ) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(entry.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(entry.name, style = MaterialTheme.typography.titleSmall, color = Lab.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
                                         text = DateUtils.formatDateTime(
                                             context,
                                             entry.modified,
                                             DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME,
                                         ) + " · " + Formatter.formatShortFileSize(context, entry.bytes),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = LabType.Mono,
+                                        color = Lab.TextDim,
                                     )
                                 }
-                                IconButton(onClick = { deleting = entry }) {
-                                    Icon(painterResource(R.drawable.ic_tool_delete), contentDescription = stringResource(R.string.genbank_delete))
-                                }
+                                LabIconButton(
+                                    icon = R.drawable.ic_tool_delete,
+                                    contentDescription = stringResource(R.string.genbank_delete),
+                                    onClick = { deleting = entry },
+                                    size = 40.dp,
+                                    iconSize = 20.dp,
+                                )
                             }
                         }
                     }
                 }
             }
         },
+        containerColor = Lab.Raised,
     )
     deleting?.let { entry ->
         ConfirmDialog(
@@ -233,8 +247,7 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
     val change = viewModel::changeSettings
     var resetting by rememberSaveable { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxWidth()) {
-        SectionTitle(stringResource(R.string.env_food))
+    EnvSection(R.string.env_food, R.drawable.ic_section_food) {
         SliderRow(
             label = stringResource(R.string.env_food_rate),
             value = settings.foodRate,
@@ -299,8 +312,8 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
             { v -> change { it.copy(corpsesBecomeFood = v) } },
             help[HELP_CORPSES],
         )
-
-        SectionTitle(stringResource(R.string.env_light))
+    }
+    EnvSection(R.string.env_light, R.drawable.ic_section_light) {
         SliderRow(
             label = stringResource(R.string.env_light_brightness),
             value = settings.lightBrightness,
@@ -332,8 +345,8 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
             levels = SNAP_LEVELS,
             help = help[HELP_LIGHT_ROTATION],
         )
-
-        SectionTitle(stringResource(R.string.env_physics))
+    }
+    EnvSection(R.string.env_physics, R.drawable.ic_section_physics) {
         SliderRow(
             label = stringResource(R.string.env_viscosity),
             value = settings.viscosity,
@@ -388,8 +401,8 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
             levels = SNAP_LEVELS,
             help = help[HELP_DENSITY_GRADIENT],
         )
-
-        SectionTitle(stringResource(R.string.env_chemistry))
+    }
+    EnvSection(R.string.env_chemistry, R.drawable.ic_section_chemistry) {
         SliderRow(
             label = stringResource(R.string.env_salinity),
             value = settings.salinity,
@@ -408,21 +421,18 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
             levels = SNAP_LEVELS,
             help = help[HELP_NITRATES],
         )
-
-        SectionTitle(stringResource(R.string.env_evolution))
+    }
+    EnvSection(R.string.env_evolution, R.drawable.ic_section_evolution) {
         // The slider moves along √radiation, so the weak levels that matter most get most of its length.
         SliderRow(
             label = stringResource(R.string.env_radiation),
             value = sqrt(settings.radiation),
             range = 0f..1f,
-            valueText = stringResource(
-                R.string.radiation_value,
-                decimal(settings.radiation, 3),
-                formatNumber(SimConfig.mutationsPerHour(settings.radiation) * 100.0, 1),
-            ),
+            valueText = decimal(settings.radiation, 3),
             onChange = { v -> change { it.copy(radiation = v * v) } },
             levels = SNAP_LEVELS,
             help = help[HELP_RADIATION],
+            note = stringResource(R.string.radiation_note, formatNumber(SimConfig.mutationsPerHour(settings.radiation) * 100.0, 1)),
         )
         SwitchRow(
             stringResource(R.string.env_point_mutations_only),
@@ -437,8 +447,8 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
             help[HELP_INFECTION],
         )
         GenePoolEditor(settings.genePool, help[HELP_GENE_POOL]) { pool -> change { it.copy(genePool = pool) } }
-
-        SectionTitle(stringResource(R.string.env_rules))
+    }
+    EnvSection(R.string.env_rules, R.drawable.ic_section_rules) {
         SliderRow(
             label = stringResource(R.string.env_dish_diameter),
             value = settings.dishDiameterMm,
@@ -465,11 +475,13 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
             { v -> change { it.copy(blockedFlagellumKills = v) } },
             help[HELP_BLOCKED_FLAGELLUM],
         )
-
-        OutlinedButton(onClick = { resetting = true }, modifier = Modifier.padding(top = 16.dp)) {
-            Text(stringResource(R.string.env_reset))
-        }
     }
+    LabButton(
+        text = stringResource(R.string.env_reset),
+        onClick = { resetting = true },
+        icon = R.drawable.ic_reset,
+        modifier = Modifier.padding(top = 4.dp),
+    )
 
     if (resetting) {
         ConfirmDialog(
@@ -487,27 +499,54 @@ private fun SettingsEditor(viewModel: PetriViewModel) {
 @Composable
 private fun GenePoolEditor(pool: Set<CellType>, help: String, onChange: (Set<CellType>) -> Unit) {
     val typeNames = stringArrayResource(R.array.cell_types)
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp),
+    ) {
         ParameterName(stringResource(R.string.env_gene_pool), help)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(top = 8.dp),
         ) {
             for (type in CellType.entries) {
                 val chosen = type in pool
-                FilterChip(
-                    selected = chosen,
-                    onClick = { onChange(if (chosen) pool - type else pool + type) },
-                    label = { Text(typeNames[type.ordinal]) },
+                val shape = MaterialTheme.shapes.small
+                Text(
+                    text = typeNames[type.ordinal],
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (chosen) Lab.Accent else Lab.TextDim,
+                    modifier = Modifier
+                        .clip(shape)
+                        .background(if (chosen) Lab.AccentSoft else Lab.Raised)
+                        .border(1.dp, if (chosen) Lab.Accent.copy(alpha = CHIP_EDGE_ALPHA) else Lab.Hairline, shape)
+                        .toggleable(value = chosen, role = Role.Checkbox, onValueChange = { onChange(if (chosen) pool - type else pool + type) })
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
                 )
             }
         }
     }
 }
 
+/** A group of the medium's parameters that opens and closes; all start open. */
+@Composable
+private fun EnvSection(@StringRes title: Int, @DrawableRes icon: Int, content: @Composable ColumnScope.() -> Unit) {
+    var expanded by rememberSaveable { mutableStateOf(true) }
+    SectionPanel(
+        title = stringResource(title),
+        icon = icon,
+        expanded = expanded,
+        onToggle = { expanded = !expanded },
+        content = content,
+    )
+}
+
 private fun roundTo(value: Float, step: Int): Int = (value / step).roundToInt() * step
 
 private fun countLevels(range: IntRange): Int = (range.last - range.first) / COUNT_STEP + 1
+
+private const val CHIP_EDGE_ALPHA = 0.6f
 
 /** Counts (cells, food) move in hundreds. */
 private const val COUNT_STEP = 100

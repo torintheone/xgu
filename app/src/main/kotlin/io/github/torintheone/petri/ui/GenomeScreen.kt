@@ -13,15 +13,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,21 +29,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,13 +46,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,6 +72,9 @@ import io.github.torintheone.petri.sim.SignalInput
 import io.github.torintheone.petri.sim.SimConfig
 import io.github.torintheone.petri.sim.Substance
 import io.github.torintheone.petri.sim.ValueShape
+import io.github.torintheone.petri.ui.theme.Lab
+import io.github.torintheone.petri.ui.theme.LabType
+import kotlinx.coroutines.delay
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -93,10 +91,12 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
             hour = editor.previewHour,
             editedMode = editor.editedMode,
             busy = editor.previewBusy,
-            onHour = { editor.previewHour = it },
             onTapMode = editor::selectMode,
             modifier = paneModifier,
         )
+    }
+    val scrubber: @Composable () -> Unit = {
+        GrowthScrubber(hour = editor.previewHour, onHour = { editor.previewHour = it })
     }
     val header: @Composable () -> Unit = {
         EditorHeader(
@@ -108,7 +108,10 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     }
     val strip: @Composable () -> Unit = { ModeStrip(genome, editor.editedMode, editor::selectMode) }
     val parameters: @Composable (Modifier) -> Unit = { listModifier ->
-        Column(listModifier.verticalScroll(rememberScrollState())) {
+        Column(
+            modifier = listModifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             ModeEditor(
                 genome = genome,
                 index = editor.editedMode,
@@ -116,24 +119,38 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                 onChange = editor::changeMode,
                 onMakeInitial = { editor.makeInitial(editor.editedMode) },
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
         }
     }
 
-    BoxWithConstraints(
-        modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End)),
-    ) {
+    BoxWithConstraints(modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
         // Read here: the layout scopes below hide the constraints of BoxWithConstraints.
-        val previewHeight = minOf(maxHeight * 0.4f, 380.dp)
+        val previewHeight = minOf(maxHeight * PREVIEW_SHARE, PREVIEW_MAX_HEIGHT)
         if (maxWidth > maxHeight) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                preview(Modifier.weight(0.45f).fillMaxHeight())
-                Column(Modifier.weight(0.55f).fillMaxHeight()) {
+                Column(
+                    Modifier
+                        .weight(0.45f)
+                        .fillMaxHeight()
+                        .padding(bottom = 8.dp),
+                ) {
+                    preview(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                    )
+                    scrubber()
+                }
+                Column(
+                    Modifier
+                        .weight(0.55f)
+                        .fillMaxHeight(),
+                ) {
                     header()
                     strip()
                     parameters(Modifier.weight(1f))
@@ -146,7 +163,12 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                     .padding(horizontal = 12.dp),
             ) {
                 header()
-                preview(Modifier.fillMaxWidth().height(previewHeight))
+                preview(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(previewHeight),
+                )
+                scrubber()
                 strip()
                 parameters(Modifier.weight(1f))
             }
@@ -154,26 +176,49 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     }
 }
 
+/** The genome's name (a tap renames it) and «Привязка». */
 @Composable
 private fun EditorHeader(genome: Genome, snapping: Boolean, onSnapping: (Boolean) -> Unit, onRename: (String) -> Unit) {
     var renaming by rememberSaveable { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Text(
-                text = genome.name.ifBlank { stringResource(R.string.genome_untitled) },
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            IconButton(onClick = { renaming = true }) {
-                Icon(painterResource(R.drawable.ic_edit), contentDescription = stringResource(R.string.editor_rename))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp, bottom = 10.dp),
+    ) {
+        Column(
+            Modifier
+                .weight(1f)
+                .clip(MaterialTheme.shapes.small)
+                .clickable(onClickLabel = stringResource(R.string.editor_rename)) { renaming = true }
+                .padding(vertical = 2.dp),
+        ) {
+            Eyebrow(stringResource(R.string.tab_genome))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = genome.name.ifBlank { stringResource(R.string.genome_untitled) },
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Lab.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_edit),
+                    contentDescription = null,
+                    tint = Lab.TextFaint,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .size(16.dp),
+                )
             }
         }
-        FilterChip(
-            selected = snapping,
+        LabButton(
+            text = stringResource(R.string.editor_snapping),
             onClick = { onSnapping(!snapping) },
-            label = { Text(stringResource(R.string.editor_snapping)) },
+            icon = R.drawable.ic_snap,
+            kind = if (snapping) ButtonKind.ACTIVE else ButtonKind.SECONDARY,
+            modifier = Modifier.padding(start = 12.dp),
         )
     }
     if (renaming) {
@@ -190,58 +235,152 @@ private fun EditorHeader(genome: Genome, snapping: Boolean, onSnapping: (Boolean
     }
 }
 
-/** The growth preview with its time slider; a tap on a cell opens that cell's mode. */
+/**
+ * The growth preview as seen in an eyepiece: a grid every round number of micrometres, the hour, the number of
+ * cells and a scale bar. A tap on a cell opens that cell's mode.
+ */
 @Composable
 private fun PreviewPane(
     frames: List<PreviewFrame>,
     hour: Int,
     editedMode: Int,
     busy: Boolean,
-    onHour: (Int) -> Unit,
     onTapMode: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val frame = frames.getOrNull(hour) ?: frames.lastOrNull()
     // One scale for all hours, so the organism visibly grows while the slider moves.
     val extent = remember(frames) { max(frames.maxOfOrNull { it.extent } ?: 0f, MIN_EXTENT_UM) }
-    Column(modifier) {
-        Box(
+    val shape = MaterialTheme.shapes.medium
+    BoxWithConstraints(
+        modifier
+            .clip(shape)
+            .background(MediumColor)
+            .border(1.dp, Lab.Hairline, shape),
+    ) {
+        val scale = with(LocalDensity.current) { min(maxWidth.toPx(), maxHeight.toPx()) } / (2f * extent * FIT_MARGIN)
+        Canvas(
             Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(MediumColor),
+                .fillMaxSize()
+                .pointerInputForCells(frame, extent, onTapMode),
         ) {
-            Canvas(
-                Modifier
-                    .fillMaxSize()
-                    .pointerInputForCells(frame, extent, onTapMode),
-            ) {
-                if (frame != null) drawOrganism(frame, min(size.width, size.height) / (2f * extent * FIT_MARGIN), editedMode)
-            }
-            Text(
-                text = stringResource(R.string.hours_value, (frame?.hour ?: hour).toString()),
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White.copy(alpha = 0.8f),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(10.dp),
-            )
+            drawGraticule(scale)
+            if (frame != null) drawOrganism(frame, scale, editedMode)
+        }
+        Text(
+            text = stringResource(R.string.preview_hour, frame?.hour ?: hour),
+            style = LabType.Mono,
+            color = Lab.Text,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(10.dp),
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(10.dp),
+        ) {
             if (busy || frame == null) {
                 CircularProgressIndicator(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .size(18.dp),
-                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 1.5.dp,
+                    color = Lab.Accent,
                 )
             }
+            if (frame != null) {
+                Text(stringResource(R.string.preview_cells, frame.cellCount), style = LabType.Mono, color = Lab.TextDim)
+            }
         }
-        Slider(
+        ScaleBar(
+            pixelsPerUm = scale,
+            maxLength = PREVIEW_SCALE_BAR,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(10.dp),
+        )
+    }
+}
+
+/** Lines every round number of micrometres through the middle of the picture, every fifth one brighter. */
+private fun DrawScope.drawGraticule(scale: Float) {
+    val step = gridStep(GRID_MIN_SPACING.toPx() / scale) * scale
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val across = (maxOf(cx, cy) / step).toInt() + 1
+    for (k in -across..across) {
+        val color = when {
+            k == 0 -> GridAxis
+            k % GRID_MAJOR_EVERY == 0 -> GridMajor
+            else -> GridMinor
+        }
+        val x = cx + k * step
+        val y = cy + k * step
+        drawLine(color, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
+        drawLine(color, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+    }
+}
+
+/** The smallest of 1, 2, 5, 10, 20, 50… µm not below [minimum]. */
+private fun gridStep(minimum: Float): Float {
+    var magnitude = 1f
+    while (magnitude * 10f <= minimum) magnitude *= 10f
+    while (magnitude > minimum && magnitude > 0.01f) magnitude /= 10f
+    for (multiple in floatArrayOf(1f, 2f, 5f, 10f)) {
+        if (multiple * magnitude >= minimum) return multiple * magnitude
+    }
+    return 10f * magnitude
+}
+
+/** The hour of the preview: ▶ plays the growth from the start, the slider picks any hour. */
+@Composable
+private fun GrowthScrubber(hour: Int, onHour: (Int) -> Unit) {
+    var playing by remember { mutableStateOf(false) }
+    val last = SimConfig.PREVIEW_HOURS - 1
+    val currentHour by rememberUpdatedState(hour)
+    LaunchedEffect(playing) {
+        if (!playing) return@LaunchedEffect
+        var shown = if (currentHour >= last) 0 else currentHour
+        onHour(shown)
+        while (shown < last) {
+            delay(PLAY_STEP_MS)
+            shown++
+            onHour(shown)
+        }
+        playing = false
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+    ) {
+        LabIconButton(
+            icon = if (playing) R.drawable.ic_pause else R.drawable.ic_play,
+            contentDescription = stringResource(if (playing) R.string.preview_stop else R.string.preview_play),
+            onClick = { playing = !playing },
+            tint = Lab.Accent,
+            size = 40.dp,
+            iconSize = 18.dp,
+        )
+        LabSlider(
             value = hour.toFloat(),
-            onValueChange = { onHour(it.roundToInt()) },
-            valueRange = 0f..(SimConfig.PREVIEW_HOURS - 1).toFloat(),
-            steps = SimConfig.PREVIEW_HOURS - 2,
+            onChange = {
+                playing = false
+                onHour(it.roundToInt())
+            },
+            range = 0f..last.toFloat(),
+            levels = SimConfig.PREVIEW_HOURS,
+            steppers = false,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stringResource(R.string.hours_value, hour.toString()),
+            style = LabType.ReadingSmall,
+            color = Lab.Text,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(48.dp),
         )
     }
 }
@@ -260,7 +399,7 @@ private fun Modifier.pointerInputForCells(frame: PreviewFrame?, extent: Float, o
         },
     )
 
-/** M1–M40 as coloured circles; faded ones cannot be reached from the initial mode. */
+/** M1–M40 as coloured cells; faded ones cannot be reached from the initial mode, a star marks the initial one. */
 @Composable
 private fun ModeStrip(genome: Genome, edited: Int, onSelect: (Int) -> Unit) {
     val reachable = remember(genome) { genome.reachableModes(genome.initialMode) }
@@ -269,7 +408,7 @@ private fun ModeStrip(genome: Genome, edited: Int, onSelect: (Int) -> Unit) {
     LazyRow(
         state = state,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 10.dp),
     ) {
         items(Mode.MODE_COUNT) { index ->
             ModeChip(
@@ -287,34 +426,34 @@ private fun ModeStrip(genome: Genome, edited: Int, onSelect: (Int) -> Unit) {
 @Composable
 private fun ModeChip(index: Int, mode: Mode, selected: Boolean, initial: Boolean, reachable: Boolean, onClick: () -> Unit) {
     val color = modeColor(mode)
-    val text = if (color.luminance() > 0.45f) Color.Black else Color.White
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(color.copy(alpha = if (reachable) 1f else 0.3f))
-            .border(
-                width = if (selected) 3.dp else 1.dp,
-                color = if (selected) MaterialTheme.colorScheme.onSurface else Color.White.copy(alpha = 0.15f),
-                shape = CircleShape,
+    val alpha = if (reachable) 1f else UNREACHABLE_ALPHA
+    Box(Modifier.size(MODE_CHIP)) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .border(2.dp, if (selected) Lab.Accent else Color.Transparent, CircleShape)
+                .padding(if (selected) 4.dp else 2.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = MEMBRANE_FILL * alpha))
+                .border(2.dp, color.copy(alpha = alpha), CircleShape)
+                .clickable(onClick = onClick),
+        ) {
+            Text(
+                text = "${index + 1}",
+                color = Lab.Text.copy(alpha = if (reachable) 1f else UNREACHABLE_TEXT_ALPHA),
+                style = LabType.ReadingSmall,
+                fontWeight = if (initial) FontWeight.Bold else FontWeight.Medium,
             )
-            .clickable(onClick = onClick),
-    ) {
-        Text(
-            text = "${index + 1}",
-            color = text.copy(alpha = if (reachable) 1f else 0.6f),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = if (initial) FontWeight.Bold else FontWeight.Normal,
-        )
+        }
         if (initial) {
-            Box(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 4.dp)
-                    .size(5.dp)
-                    .clip(CircleShape)
-                    .background(text),
+            Icon(
+                painter = painterResource(R.drawable.ic_star),
+                contentDescription = stringResource(R.string.editor_initial),
+                tint = Lab.Amber,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(12.dp),
             )
         }
     }
@@ -322,7 +461,7 @@ private fun ModeChip(index: Int, mode: Mode, selected: Boolean, initial: Boolean
 
 fun modeColor(mode: Mode): Color = Color(mode.red.coerceIn(0f, 1f), mode.green.coerceIn(0f, 1f), mode.blue.coerceIn(0f, 1f))
 
-/** Every parameter of one mode (SPEC «Общие параметры режима» and the parameters of its type). */
+/** Every parameter of one mode (SPEC «Общие параметры режима» and the parameters of its type), group by group. */
 @Composable
 private fun ModeEditor(
     genome: Genome,
@@ -335,53 +474,72 @@ private fun ModeEditor(
     val levels = if (snapping) SNAP_LEVELS else 0
     val typeNames = stringArrayResource(R.array.cell_types)
     val help = stringArrayResource(R.array.help_mode)
+    val initial = genome.initialMode == index
 
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.editor_mode_title, index + 1), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        FilterChip(
-            selected = genome.initialMode == index,
-            onClick = onMakeInitial,
-            label = { Text(stringResource(R.string.editor_initial)) },
+    Panel(
+        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ModeSwatch(mode, Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Eyebrow(stringResource(R.string.editor_mode_title, index + 1))
+                Text(
+                    text = typeNames[mode.cellType.ordinal],
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Lab.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            LabButton(
+                text = stringResource(R.string.editor_initial),
+                onClick = onMakeInitial,
+                icon = R.drawable.ic_star,
+                kind = if (initial) ButtonKind.ACTIVE else ButtonKind.SECONDARY,
+            )
+        }
+        ChoiceRow(
+            label = stringResource(R.string.param_cell_type),
+            options = CellType.entries,
+            selected = mode.cellType,
+            optionText = { typeNames[it.ordinal] },
+            onSelect = { type -> onChange { it.copy(cellType = type) } },
+            help = help[HELP_TYPE],
         )
     }
-    ChoiceRow(
-        label = stringResource(R.string.param_cell_type),
-        options = CellType.entries,
-        selected = mode.cellType,
-        optionText = { typeNames[it.ordinal] },
-        onSelect = { type -> onChange { it.copy(cellType = type) } },
-        help = help[HELP_TYPE],
-    )
 
-    SectionTitle(stringResource(R.string.section_division))
-    SliderRow(
-        label = stringResource(R.string.param_split_mass),
-        value = mode.splitMass,
-        range = Mode.SPLIT_MASS,
-        valueText = splitMassText(mode.splitMass),
-        onChange = { v -> onChange { it.copy(splitMass = v) } },
-        levels = levels,
-        help = help[HELP_SPLIT_MASS],
-    )
-    SliderRow(
-        label = stringResource(R.string.param_split_ratio),
-        value = mode.splitRatio,
-        range = Mode.SPLIT_RATIO,
-        valueText = ratioText(mode.splitRatio),
-        onChange = { v -> onChange { it.copy(splitRatio = v) } },
-        levels = levels,
-        help = help[HELP_SPLIT_RATIO],
-    )
-    SliderRow(
-        label = stringResource(R.string.param_split_angle),
-        value = mode.splitAngle,
-        range = Mode.ANGLE,
-        valueText = degrees(mode.splitAngle),
-        onChange = { v -> onChange { it.copy(splitAngle = v) } },
-        levels = levels,
-        help = help[HELP_SPLIT_ANGLE],
-    )
-    SwitchRow(stringResource(R.string.param_make_adhesin), mode.makeAdhesin, { v -> onChange { it.copy(makeAdhesin = v) } }, help[HELP_ADHESIN])
+    SectionPanel(stringResource(R.string.section_division)) {
+        SliderRow(
+            label = stringResource(R.string.param_split_mass),
+            value = mode.splitMass,
+            range = Mode.SPLIT_MASS,
+            valueText = splitMassText(mode.splitMass),
+            onChange = { v -> onChange { it.copy(splitMass = v) } },
+            levels = levels,
+            help = help[HELP_SPLIT_MASS],
+        )
+        SliderRow(
+            label = stringResource(R.string.param_split_ratio),
+            value = mode.splitRatio,
+            range = Mode.SPLIT_RATIO,
+            valueText = ratioText(mode.splitRatio),
+            onChange = { v -> onChange { it.copy(splitRatio = v) } },
+            levels = levels,
+            help = help[HELP_SPLIT_RATIO],
+        )
+        SliderRow(
+            label = stringResource(R.string.param_split_angle),
+            value = mode.splitAngle,
+            range = Mode.ANGLE,
+            valueText = degrees(mode.splitAngle),
+            onChange = { v -> onChange { it.copy(splitAngle = v) } },
+            levels = levels,
+            help = help[HELP_SPLIT_ANGLE],
+        )
+        SwitchRow(stringResource(R.string.param_make_adhesin), mode.makeAdhesin, { v -> onChange { it.copy(makeAdhesin = v) } }, help[HELP_ADHESIN])
+    }
     ChildParameters(
         title = stringResource(R.string.section_child, 1),
         genome = genome,
@@ -411,71 +569,86 @@ private fun ModeEditor(
         onMirror = { v -> onChange { it.copy(child2Mirror = v) } },
     )
 
-    SectionTitle(stringResource(R.string.section_adhesin))
-    SliderRow(
-        label = stringResource(R.string.param_adhesin_stiffness),
-        value = mode.adhesinStiffness,
-        range = Mode.UNIT,
-        valueText = decimal(mode.adhesinStiffness),
-        onChange = { v -> onChange { it.copy(adhesinStiffness = v) } },
-        levels = levels,
-        help = help[HELP_ADHESIN_STIFFNESS],
-    )
-    SliderRow(
-        label = stringResource(R.string.param_adhesin_length),
-        value = mode.adhesinLength,
-        range = Mode.UNIT,
-        valueText = decimal(mode.adhesinLength),
-        onChange = { v -> onChange { it.copy(adhesinLength = v) } },
-        levels = levels,
-        help = help[HELP_ADHESIN_LENGTH],
-    )
-    SliderRow(
-        label = stringResource(R.string.param_max_bonds),
-        value = mode.maxBonds.toFloat(),
-        range = 0f..Mode.MAX_BONDS.toFloat(),
-        valueText = mode.maxBonds.toString(),
-        onChange = { v -> onChange { it.copy(maxBonds = v.roundToInt()) } },
-        levels = Mode.MAX_BONDS + 1,
-        help = help[HELP_MAX_BONDS],
-    )
-
-    SectionTitle(stringResource(R.string.section_nutrition))
-    SliderRow(
-        label = stringResource(R.string.param_priority),
-        value = mode.nutrientPriority,
-        range = Mode.UNIT,
-        valueText = decimal(mode.nutrientPriority),
-        onChange = { v -> onChange { it.copy(nutrientPriority = v) } },
-        levels = levels,
-        help = help[HELP_PRIORITY],
-    )
-    SwitchRow(stringResource(R.string.param_prioritize), mode.prioritize, { v -> onChange { it.copy(prioritize = v) } }, help[HELP_PRIORITIZE])
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        SectionTitle(stringResource(R.string.section_cell), Modifier.weight(1f))
-        Box(
-            Modifier
-                .padding(top = 12.dp)
-                .size(width = 40.dp, height = 20.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(modeColor(mode)),
+    SectionPanel(stringResource(R.string.section_adhesin)) {
+        SliderRow(
+            label = stringResource(R.string.param_adhesin_stiffness),
+            value = mode.adhesinStiffness,
+            range = Mode.UNIT,
+            valueText = decimal(mode.adhesinStiffness),
+            onChange = { v -> onChange { it.copy(adhesinStiffness = v) } },
+            levels = levels,
+            help = help[HELP_ADHESIN_STIFFNESS],
+        )
+        SliderRow(
+            label = stringResource(R.string.param_adhesin_length),
+            value = mode.adhesinLength,
+            range = Mode.UNIT,
+            valueText = decimal(mode.adhesinLength),
+            onChange = { v -> onChange { it.copy(adhesinLength = v) } },
+            levels = levels,
+            help = help[HELP_ADHESIN_LENGTH],
+        )
+        SliderRow(
+            label = stringResource(R.string.param_max_bonds),
+            value = mode.maxBonds.toFloat(),
+            range = 0f..Mode.MAX_BONDS.toFloat(),
+            valueText = mode.maxBonds.toString(),
+            onChange = { v -> onChange { it.copy(maxBonds = v.roundToInt()) } },
+            levels = Mode.MAX_BONDS + 1,
+            help = help[HELP_MAX_BONDS],
         )
     }
-    SliderRow(
-        label = stringResource(R.string.param_cytoskeleton),
-        value = mode.cytoskeleton,
-        range = Mode.UNIT,
-        valueText = decimal(mode.cytoskeleton),
-        onChange = { v -> onChange { it.copy(cytoskeleton = v) } },
-        levels = levels,
-        help = help[HELP_CYTOSKELETON],
-    )
-    SliderRow(stringResource(R.string.param_red), mode.red, Mode.UNIT, decimal(mode.red), { v -> onChange { it.copy(red = v) } }, levels, help[HELP_COLOR])
-    SliderRow(stringResource(R.string.param_green), mode.green, Mode.UNIT, decimal(mode.green), { v -> onChange { it.copy(green = v) } }, levels, help[HELP_COLOR])
-    SliderRow(stringResource(R.string.param_blue), mode.blue, Mode.UNIT, decimal(mode.blue), { v -> onChange { it.copy(blue = v) } }, levels, help[HELP_COLOR])
+
+    SectionPanel(stringResource(R.string.section_nutrition)) {
+        SliderRow(
+            label = stringResource(R.string.param_priority),
+            value = mode.nutrientPriority,
+            range = Mode.UNIT,
+            valueText = decimal(mode.nutrientPriority),
+            onChange = { v -> onChange { it.copy(nutrientPriority = v) } },
+            levels = levels,
+            help = help[HELP_PRIORITY],
+        )
+        SwitchRow(stringResource(R.string.param_prioritize), mode.prioritize, { v -> onChange { it.copy(prioritize = v) } }, help[HELP_PRIORITIZE])
+    }
+
+    SectionPanel(
+        title = stringResource(R.string.section_cell),
+        trailing = {
+            Box(
+                Modifier
+                    .size(width = 40.dp, height = 18.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(modeColor(mode)),
+            )
+        },
+    ) {
+        SliderRow(
+            label = stringResource(R.string.param_cytoskeleton),
+            value = mode.cytoskeleton,
+            range = Mode.UNIT,
+            valueText = decimal(mode.cytoskeleton),
+            onChange = { v -> onChange { it.copy(cytoskeleton = v) } },
+            levels = levels,
+            help = help[HELP_CYTOSKELETON],
+        )
+        SliderRow(stringResource(R.string.param_red), mode.red, Mode.UNIT, decimal(mode.red), { v -> onChange { it.copy(red = v) } }, levels, help[HELP_COLOR])
+        SliderRow(stringResource(R.string.param_green), mode.green, Mode.UNIT, decimal(mode.green), { v -> onChange { it.copy(green = v) } }, levels, help[HELP_COLOR])
+        SliderRow(stringResource(R.string.param_blue), mode.blue, Mode.UNIT, decimal(mode.blue), { v -> onChange { it.copy(blue = v) } }, levels, help[HELP_COLOR])
+    }
 
     TypeParameters(genome, mode, typeNames[mode.cellType.ordinal], snapping, onChange)
+}
+
+/** The mode's colour as a small cell: a pale inside and a membrane. */
+@Composable
+private fun ModeSwatch(mode: Mode, modifier: Modifier = Modifier) {
+    val color = modeColor(mode)
+    Box(
+        modifier
+            .background(color.copy(alpha = MEMBRANE_FILL), CircleShape)
+            .border(2.dp, color, CircleShape),
+    )
 }
 
 @Composable
@@ -493,11 +666,12 @@ private fun ChildParameters(
     onKeepBonds: (Boolean) -> Unit,
     onMirror: (Boolean) -> Unit,
 ) {
-    SectionTitle(title)
-    ModeChoiceRow(stringResource(R.string.param_child_mode), genome, childMode, onMode, help[HELP_CHILD_MODE])
-    SliderRow(stringResource(R.string.param_child_angle), angle, Mode.ANGLE, degrees(angle), onAngle, levels, help[HELP_CHILD_ANGLE])
-    SwitchRow(stringResource(R.string.param_keep_bonds), keepBonds, onKeepBonds, help[HELP_KEEP_BONDS])
-    SwitchRow(stringResource(R.string.param_mirror), mirror, onMirror, help[HELP_MIRROR])
+    SectionPanel(title) {
+        ModeChoiceRow(stringResource(R.string.param_child_mode), genome, childMode, onMode, help[HELP_CHILD_MODE])
+        SliderRow(stringResource(R.string.param_child_angle), angle, Mode.ANGLE, degrees(angle), onAngle, levels, help[HELP_CHILD_ANGLE])
+        SwitchRow(stringResource(R.string.param_keep_bonds), keepBonds, onKeepBonds, help[HELP_KEEP_BONDS])
+        SwitchRow(stringResource(R.string.param_mirror), mirror, onMirror, help[HELP_MIRROR])
+    }
 }
 
 /** A choice of one of the 40 modes, each shown with its colour. */
@@ -510,130 +684,132 @@ private fun ModeChoiceRow(label: String, genome: Genome, selected: Int, onSelect
         optionText = { "M${it + 1}" },
         onSelect = onSelect,
         help = help,
-        optionIcon = { index ->
-            Box(
-                Modifier
-                    .size(16.dp)
-                    .clip(CircleShape)
-                    .background(modeColor(genome.modes[index])),
-            )
-        },
+        optionIcon = { index -> ModeSwatch(genome.modes[index], Modifier.size(14.dp)) },
     )
 }
 
-/** Parameters of the mode's cell type (SPEC «Типы клеток»). */
+/** Parameters of the mode's cell type (SPEC «Типы клеток»), in a group named after the type; none for simple types. */
 @Composable
 private fun TypeParameters(genome: Genome, mode: Mode, typeName: String, snapping: Boolean, onChange: ((Mode) -> Mode) -> Unit) {
+    if (mode.cellType !in TYPES_WITH_PARAMETERS) return
     val levels = if (snapping) SNAP_LEVELS else 0
     val help = stringArrayResource(R.array.help_type)
     val channels = SignalChannel.entries
-    val title: @Composable () -> Unit = { SectionTitle(typeName) }
-    when (mode.cellType) {
-        CellType.FLAGELLOCYTE -> {
-            title()
-            ProgrammableEditor(stringResource(R.string.param_swim_force), mode.swimForce, 0f..1f, snapping, { v -> onChange { it.copy(swimForce = v) } }, help[HELP_SWIM])
-        }
-        CellType.BUOYOCYTE -> {
-            title()
-            ProgrammableEditor(stringResource(R.string.param_density), mode.density, 0f..1f, snapping, { v -> onChange { it.copy(density = v) } }, help[HELP_DENSITY])
-        }
-        CellType.MYOCYTE -> {
-            title()
-            ProgrammableEditor(stringResource(R.string.param_contraction), mode.contraction, -1f..1f, snapping, { v -> onChange { it.copy(contraction = v) } }, help[HELP_CONTRACTION])
-            ProgrammableEditor(stringResource(R.string.param_bend), mode.bend, -1f..1f, snapping, { v -> onChange { it.copy(bend = v) } }, help[HELP_BEND])
-            ProgrammableEditor(stringResource(R.string.param_lift), mode.lift, 0f..1f, snapping, { v -> onChange { it.copy(lift = v) } }, help[HELP_LIFT])
-        }
-        CellType.NEUROCYTE -> {
-            title()
-            val outputs = listOf(mode.neuronOutput1, mode.neuronOutput2, mode.neuronOutput3, mode.neuronOutput4)
-            outputs.forEachIndexed { k, output ->
-                ProgrammableEditor(
-                    label = stringResource(R.string.param_neuron_output, channels[k].name),
-                    value = output,
-                    constantRange = -1f..1f,
-                    snapping = snapping,
-                    onChange = { v ->
-                        onChange {
-                            when (k) {
-                                0 -> it.copy(neuronOutput1 = v)
-                                1 -> it.copy(neuronOutput2 = v)
-                                2 -> it.copy(neuronOutput3 = v)
-                                else -> it.copy(neuronOutput4 = v)
+    SectionPanel(typeName) {
+        when (mode.cellType) {
+            CellType.FLAGELLOCYTE -> {
+                ProgrammableEditor(stringResource(R.string.param_swim_force), mode.swimForce, 0f..1f, snapping, { v -> onChange { it.copy(swimForce = v) } }, help[HELP_SWIM])
+            }
+            CellType.BUOYOCYTE -> {
+                ProgrammableEditor(stringResource(R.string.param_density), mode.density, 0f..1f, snapping, { v -> onChange { it.copy(density = v) } }, help[HELP_DENSITY])
+            }
+            CellType.MYOCYTE -> {
+                ProgrammableEditor(stringResource(R.string.param_contraction), mode.contraction, -1f..1f, snapping, { v -> onChange { it.copy(contraction = v) } }, help[HELP_CONTRACTION])
+                ProgrammableEditor(stringResource(R.string.param_bend), mode.bend, -1f..1f, snapping, { v -> onChange { it.copy(bend = v) } }, help[HELP_BEND], divider = true)
+                ProgrammableEditor(stringResource(R.string.param_lift), mode.lift, 0f..1f, snapping, { v -> onChange { it.copy(lift = v) } }, help[HELP_LIFT], divider = true)
+            }
+            CellType.NEUROCYTE -> {
+                val outputs = listOf(mode.neuronOutput1, mode.neuronOutput2, mode.neuronOutput3, mode.neuronOutput4)
+                outputs.forEachIndexed { k, output ->
+                    ProgrammableEditor(
+                        label = stringResource(R.string.param_neuron_output, channels[k].name),
+                        value = output,
+                        constantRange = -1f..1f,
+                        snapping = snapping,
+                        onChange = { v ->
+                            onChange {
+                                when (k) {
+                                    0 -> it.copy(neuronOutput1 = v)
+                                    1 -> it.copy(neuronOutput2 = v)
+                                    2 -> it.copy(neuronOutput3 = v)
+                                    else -> it.copy(neuronOutput4 = v)
+                                }
                             }
-                        }
-                    },
-                    help = help[HELP_NEURON_OUTPUT],
-                )
-            }
-            SliderRow(
-                label = stringResource(R.string.param_oscillator_frequency),
-                value = mode.oscillatorFrequency,
-                range = Mode.UNIT,
-                valueText = decimal(mode.oscillatorFrequency),
-                onChange = { v -> onChange { it.copy(oscillatorFrequency = v) } },
-                levels = levels,
-                help = help[HELP_OSCILLATOR],
-            )
-            ChoiceRow(stringResource(R.string.param_oscillator_channel_a), channels, mode.oscillatorChannelA, { it.name }, { v -> onChange { it.copy(oscillatorChannelA = v) } })
-            ChoiceRow(stringResource(R.string.param_oscillator_channel_b), channels, mode.oscillatorChannelB, { it.name }, { v -> onChange { it.copy(oscillatorChannelB = v) } })
-        }
-        CellType.STEMOCYTE -> {
-            title()
-            ModeChoiceRow(stringResource(R.string.param_path_mode, 1), genome, mode.path1Mode, { v -> onChange { it.copy(path1Mode = v) } }, help[HELP_PATH])
-            ProgrammableEditor(stringResource(R.string.param_path_signal, 1), mode.path1Signal, -1f..1f, snapping, { v -> onChange { it.copy(path1Signal = v) } }, help[HELP_PATH])
-            ModeChoiceRow(stringResource(R.string.param_path_mode, 2), genome, mode.path2Mode, { v -> onChange { it.copy(path2Mode = v) } }, help[HELP_PATH])
-            ProgrammableEditor(stringResource(R.string.param_path_signal, 2), mode.path2Signal, -1f..1f, snapping, { v -> onChange { it.copy(path2Signal = v) } }, help[HELP_PATH])
-        }
-        CellType.SENSEOCYTE, CellType.STEREOCYTE -> {
-            title()
-            val targets = stringArrayResource(R.array.sense_targets)
-            ChoiceRow(stringResource(R.string.param_sense_target), SenseTarget.entries, mode.senseTarget, { targets[it.ordinal] }, { v -> onChange { it.copy(senseTarget = v) } }, help[HELP_SENSE_TARGET])
-            ChoiceRow(stringResource(R.string.param_signal_channel), channels, mode.senseChannel, { it.name }, { v -> onChange { it.copy(senseChannel = v) } })
-            SliderRow(stringResource(R.string.param_sense_gain), mode.senseGain, Mode.UNIT, decimal(mode.senseGain), { v -> onChange { it.copy(senseGain = v) } }, levels, help[HELP_SENSE_GAIN])
-            if (mode.senseTarget == SenseTarget.CELLS) {
-                SliderRow(stringResource(R.string.param_sense_red), mode.senseRed, Mode.UNIT, decimal(mode.senseRed), { v -> onChange { it.copy(senseRed = v) } }, levels, help[HELP_SENSE_COLOR])
-                SliderRow(stringResource(R.string.param_sense_green), mode.senseGreen, Mode.UNIT, decimal(mode.senseGreen), { v -> onChange { it.copy(senseGreen = v) } }, levels, help[HELP_SENSE_COLOR])
-                SliderRow(stringResource(R.string.param_sense_blue), mode.senseBlue, Mode.UNIT, decimal(mode.senseBlue), { v -> onChange { it.copy(senseBlue = v) } }, levels, help[HELP_SENSE_COLOR])
+                        },
+                        help = help[HELP_NEURON_OUTPUT],
+                        divider = k > 0,
+                    )
+                }
+                Hairline(Modifier.padding(vertical = 6.dp))
                 SliderRow(
-                    stringResource(R.string.param_sense_threshold), mode.senseColorThreshold, Mode.UNIT, decimal(mode.senseColorThreshold),
-                    { v -> onChange { it.copy(senseColorThreshold = v) } }, levels, help[HELP_SENSE_COLOR],
+                    label = stringResource(R.string.param_oscillator_frequency),
+                    value = mode.oscillatorFrequency,
+                    range = Mode.UNIT,
+                    valueText = decimal(mode.oscillatorFrequency),
+                    onChange = { v -> onChange { it.copy(oscillatorFrequency = v) } },
+                    levels = levels,
+                    help = help[HELP_OSCILLATOR],
                 )
+                ChoiceRow(stringResource(R.string.param_oscillator_channel_a), channels, mode.oscillatorChannelA, { it.name }, { v -> onChange { it.copy(oscillatorChannelA = v) } })
+                ChoiceRow(stringResource(R.string.param_oscillator_channel_b), channels, mode.oscillatorChannelB, { it.name }, { v -> onChange { it.copy(oscillatorChannelB = v) } })
             }
-        }
-        CellType.SECROCYTE -> {
-            title()
-            val substances = stringArrayResource(R.array.substances)
-            ChoiceRow(stringResource(R.string.param_secretion), Substance.entries, mode.secretion, { substances[it.ordinal] }, { v -> onChange { it.copy(secretion = v) } }, help[HELP_SECRETION])
-            SliderRow(
-                stringResource(R.string.param_secretion_intensity), mode.secretionIntensity, Mode.UNIT, decimal(mode.secretionIntensity),
-                { v -> onChange { it.copy(secretionIntensity = v) } }, levels, help[HELP_SECRETION],
-            )
-            if (mode.secretion == Substance.SIGNAL) {
-                ChoiceRow(stringResource(R.string.param_signal_channel), channels, mode.secretionChannel, { it.name }, { v -> onChange { it.copy(secretionChannel = v) } })
+            CellType.STEMOCYTE -> {
+                ModeChoiceRow(stringResource(R.string.param_path_mode, 1), genome, mode.path1Mode, { v -> onChange { it.copy(path1Mode = v) } }, help[HELP_PATH])
+                ProgrammableEditor(stringResource(R.string.param_path_signal, 1), mode.path1Signal, -1f..1f, snapping, { v -> onChange { it.copy(path1Signal = v) } }, help[HELP_PATH])
+                Hairline(Modifier.padding(vertical = 6.dp))
+                ModeChoiceRow(stringResource(R.string.param_path_mode, 2), genome, mode.path2Mode, { v -> onChange { it.copy(path2Mode = v) } }, help[HELP_PATH])
+                ProgrammableEditor(stringResource(R.string.param_path_signal, 2), mode.path2Signal, -1f..1f, snapping, { v -> onChange { it.copy(path2Signal = v) } }, help[HELP_PATH])
             }
+            CellType.SENSEOCYTE, CellType.STEREOCYTE -> {
+                val targets = stringArrayResource(R.array.sense_targets)
+                ChoiceRow(stringResource(R.string.param_sense_target), SenseTarget.entries, mode.senseTarget, { targets[it.ordinal] }, { v -> onChange { it.copy(senseTarget = v) } }, help[HELP_SENSE_TARGET])
+                ChoiceRow(stringResource(R.string.param_signal_channel), channels, mode.senseChannel, { it.name }, { v -> onChange { it.copy(senseChannel = v) } })
+                SliderRow(stringResource(R.string.param_sense_gain), mode.senseGain, Mode.UNIT, decimal(mode.senseGain), { v -> onChange { it.copy(senseGain = v) } }, levels, help[HELP_SENSE_GAIN])
+                if (mode.senseTarget == SenseTarget.CELLS) {
+                    SliderRow(stringResource(R.string.param_sense_red), mode.senseRed, Mode.UNIT, decimal(mode.senseRed), { v -> onChange { it.copy(senseRed = v) } }, levels, help[HELP_SENSE_COLOR])
+                    SliderRow(stringResource(R.string.param_sense_green), mode.senseGreen, Mode.UNIT, decimal(mode.senseGreen), { v -> onChange { it.copy(senseGreen = v) } }, levels, help[HELP_SENSE_COLOR])
+                    SliderRow(stringResource(R.string.param_sense_blue), mode.senseBlue, Mode.UNIT, decimal(mode.senseBlue), { v -> onChange { it.copy(senseBlue = v) } }, levels, help[HELP_SENSE_COLOR])
+                    SliderRow(
+                        stringResource(R.string.param_sense_threshold), mode.senseColorThreshold, Mode.UNIT, decimal(mode.senseColorThreshold),
+                        { v -> onChange { it.copy(senseColorThreshold = v) } }, levels, help[HELP_SENSE_COLOR],
+                    )
+                }
+            }
+            CellType.SECROCYTE -> {
+                val substances = stringArrayResource(R.array.substances)
+                ChoiceRow(stringResource(R.string.param_secretion), Substance.entries, mode.secretion, { substances[it.ordinal] }, { v -> onChange { it.copy(secretion = v) } }, help[HELP_SECRETION])
+                SliderRow(
+                    stringResource(R.string.param_secretion_intensity), mode.secretionIntensity, Mode.UNIT, decimal(mode.secretionIntensity),
+                    { v -> onChange { it.copy(secretionIntensity = v) } }, levels, help[HELP_SECRETION],
+                )
+                if (mode.secretion == Substance.SIGNAL) {
+                    ChoiceRow(stringResource(R.string.param_signal_channel), channels, mode.secretionChannel, { it.name }, { v -> onChange { it.copy(secretionChannel = v) } })
+                }
+            }
+            CellType.VIROCYTE -> {
+                ModeChoiceRow(stringResource(R.string.param_virus_mode), genome, mode.virusMode, { v -> onChange { it.copy(virusMode = v) } }, help[HELP_VIRUS])
+            }
+            CellType.GAMETE -> {
+                ModeChoiceRow(stringResource(R.string.param_fusion_mode), genome, mode.fusionMode, { v -> onChange { it.copy(fusionMode = v) } }, help[HELP_GAMETE])
+            }
+            CellType.CILIOCYTE -> {
+                ProgrammableEditor(stringResource(R.string.param_left_cilia), mode.leftCilia, -1f..1f, snapping, { v -> onChange { it.copy(leftCilia = v) } }, help[HELP_CILIA])
+                ProgrammableEditor(stringResource(R.string.param_right_cilia), mode.rightCilia, -1f..1f, snapping, { v -> onChange { it.copy(rightCilia = v) } }, help[HELP_CILIA], divider = true)
+            }
+            else -> Unit
         }
-        CellType.VIROCYTE -> {
-            title()
-            ModeChoiceRow(stringResource(R.string.param_virus_mode), genome, mode.virusMode, { v -> onChange { it.copy(virusMode = v) } }, help[HELP_VIRUS])
-        }
-        CellType.GAMETE -> {
-            title()
-            ModeChoiceRow(stringResource(R.string.param_fusion_mode), genome, mode.fusionMode, { v -> onChange { it.copy(fusionMode = v) } }, help[HELP_GAMETE])
-        }
-        CellType.CILIOCYTE -> {
-            title()
-            ProgrammableEditor(stringResource(R.string.param_left_cilia), mode.leftCilia, -1f..1f, snapping, { v -> onChange { it.copy(leftCilia = v) } }, help[HELP_CILIA])
-            ProgrammableEditor(stringResource(R.string.param_right_cilia), mode.rightCilia, -1f..1f, snapping, { v -> onChange { it.copy(rightCilia = v) } }, help[HELP_CILIA])
-        }
-        else -> Unit
     }
 }
 
+/** Types whose modes have parameters of their own, shown in a group after the common ones. */
+private val TYPES_WITH_PARAMETERS = setOf(
+    CellType.FLAGELLOCYTE,
+    CellType.BUOYOCYTE,
+    CellType.MYOCYTE,
+    CellType.NEUROCYTE,
+    CellType.STEMOCYTE,
+    CellType.SENSEOCYTE,
+    CellType.STEREOCYTE,
+    CellType.SECROCYTE,
+    CellType.VIROCYTE,
+    CellType.GAMETE,
+    CellType.CILIOCYTE,
+)
+
 /**
  * A programmable value (SPEC «Программируемые значения»): a constant, or a linear or step function of one input,
- * with a small graph of the function.
+ * with a small graph of the function. [divider] draws a line above it, between values of one group.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProgrammableEditor(
     label: String,
@@ -642,10 +818,12 @@ private fun ProgrammableEditor(
     snapping: Boolean,
     onChange: (ProgrammableValue) -> Unit,
     help: String? = null,
+    divider: Boolean = false,
 ) {
     val levels = if (snapping) SNAP_LEVELS else 0
     val inputs = stringArrayResource(R.array.pv_inputs)
     Column(Modifier.fillMaxWidth()) {
+        if (divider) Hairline(Modifier.padding(vertical = 6.dp))
         ChoiceRow(
             label = label,
             options = SignalInput.entries,
@@ -657,29 +835,27 @@ private fun ProgrammableEditor(
         if (value.input == SignalInput.NONE) {
             SliderRow(stringResource(R.string.pv_value), value.b, constantRange, decimal(value.b), { v -> onChange(value.copy(b = v)) }, levels)
         } else {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                ValueShape.entries.forEachIndexed { index, shape ->
-                    SegmentedButton(
-                        selected = value.shape == shape,
-                        onClick = { onChange(value.copy(shape = shape).sanitized()) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = ValueShape.entries.size),
-                        icon = {},
-                        label = {
-                            Text(stringResource(if (shape == ValueShape.LINEAR) R.string.pv_shape_linear else R.string.pv_shape_step))
-                        },
-                    )
-                }
-            }
+            Segmented(
+                options = ValueShape.entries,
+                selected = value.shape,
+                label = { shape -> stringResource(if (shape == ValueShape.LINEAR) R.string.pv_shape_linear else R.string.pv_shape_step) },
+                onSelect = { shape -> onChange(value.copy(shape = shape).sanitized()) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+            )
             val step = value.shape == ValueShape.STEP
             val ab = if (step) ProgrammableValue.STEP_AB else ProgrammableValue.LINEAR_AB
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
                 Text(
                     text = stringResource(if (step) R.string.pv_formula_step else R.string.pv_formula_linear),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
+                    style = LabType.Mono,
+                    color = Lab.TextDim,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp),
                 )
-                FunctionGraph(value, Modifier.size(width = 96.dp, height = 48.dp))
+                FunctionGraph(value, Modifier.size(width = 104.dp, height = 56.dp))
             }
             SliderRow("a", value.a, ab, decimal(value.a), { v -> onChange(value.copy(a = v)) }, levels)
             SliderRow("b", value.b, ab, decimal(value.b), { v -> onChange(value.copy(b = v)) }, levels)
@@ -688,27 +864,33 @@ private fun ProgrammableEditor(
     }
 }
 
-/** The function of a programmable value for inputs −1…1, outputs clipped to −1…1. */
+/** The function of a programmable value for inputs −1…1, outputs clipped to −1…1, on a small grid. */
 @Composable
 private fun FunctionGraph(value: ProgrammableValue, modifier: Modifier = Modifier) {
-    val axis = MaterialTheme.colorScheme.outlineVariant
-    val line = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(6.dp)
     Canvas(
         modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            .clip(shape)
+            .background(Lab.Raised)
+            .border(1.dp, Lab.Hairline, shape),
     ) {
         fun px(input: Float) = (input + 1f) / 2f * size.width
         fun py(output: Float) = (1f - (output.coerceIn(-1f, 1f) + 1f) / 2f) * size.height
-        drawLine(axis, Offset(0f, py(0f)), Offset(size.width, py(0f)))
-        drawLine(axis, Offset(px(0f), 0f), Offset(px(0f), size.height))
+        for (k in 1 until FUNCTION_GRID) {
+            val x = size.width * k / FUNCTION_GRID
+            val y = size.height * k / FUNCTION_GRID
+            drawLine(Lab.Hairline, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
+            drawLine(Lab.Hairline, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+        }
+        drawLine(Lab.HairlineStrong, Offset(0f, py(0f)), Offset(size.width, py(0f)), strokeWidth = 1.dp.toPx())
+        drawLine(Lab.HairlineStrong, Offset(px(0f), 0f), Offset(px(0f), size.height), strokeWidth = 1.dp.toPx())
         val path = Path()
         for (k in 0..GRAPH_SAMPLES) {
             val input = -1f + 2f * k / GRAPH_SAMPLES
             val point = Offset(px(input), py(value.evaluate(input)))
             if (k == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
         }
-        drawPath(path, line, style = Stroke(width = 2.dp.toPx()))
+        drawPath(path, Lab.Accent, style = Stroke(width = 2.dp.toPx()))
     }
 }
 
@@ -726,6 +908,27 @@ private fun ratioText(ratio: Float): String {
 
 private const val TAP_SLACK_PX = 24f
 private const val GRAPH_SAMPLES = 48
+private const val FUNCTION_GRID = 4
+
+/** The preview takes this share of the screen height in portrait, up to [PREVIEW_MAX_HEIGHT]. */
+private const val PREVIEW_SHARE = 0.36f
+private val PREVIEW_MAX_HEIGHT = 360.dp
+private val PREVIEW_SCALE_BAR = 72.dp
+
+/** Grid lines of the preview are at least this far apart; every fifth one is brighter. */
+private val GRID_MIN_SPACING = 28.dp
+private const val GRID_MAJOR_EVERY = 5
+private val GridMinor = Color(0x0DFFFFFF)
+private val GridMajor = Color(0x1AFFFFFF)
+private val GridAxis = Color(0x26FFFFFF)
+
+/** ▶ in the preview shows one game hour per this many milliseconds. */
+private const val PLAY_STEP_MS = 110L
+
+private val MODE_CHIP = 40.dp
+private const val MEMBRANE_FILL = 0.3f
+private const val UNREACHABLE_ALPHA = 0.3f
+private const val UNREACHABLE_TEXT_ALPHA = 0.55f
 
 // Positions in R.array.help_mode.
 private const val HELP_TYPE = 0

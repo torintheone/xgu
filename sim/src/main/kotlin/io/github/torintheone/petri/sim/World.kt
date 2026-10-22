@@ -25,6 +25,10 @@ data class CellInfo(
     val parentGenomeId: Long,
     val x: Float,
     val y: Float,
+    /** Membrane colour of the cell's mode, 0–1 each. */
+    val red: Float = 0f,
+    val green: Float = 0f,
+    val blue: Float = 0f,
 )
 
 /**
@@ -204,6 +208,7 @@ class World(
         val i = indexOfUid(uid)
         if (i < 0) return null
         val s = i * Cells.SIGNALS
+        val mode = modeOf(i)
         return CellInfo(
             uid = uid,
             type = cells.cellType(i),
@@ -220,6 +225,9 @@ class World(
             parentGenomeId = genomes.parentId(cells.genome[i]),
             x = cells.x[i],
             y = cells.y[i],
+            red = mode.red,
+            green = mode.green,
+            blue = mode.blue,
         )
     }
 

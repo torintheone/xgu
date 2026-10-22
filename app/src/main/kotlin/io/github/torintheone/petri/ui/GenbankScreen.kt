@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -13,23 +13,14 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,10 +32,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,6 +45,7 @@ import io.github.torintheone.petri.data.GenbankEntry
 import io.github.torintheone.petri.sim.Genome
 import io.github.torintheone.petri.sim.PreviewFrame
 import io.github.torintheone.petri.sim.SimStats
+import io.github.torintheone.petri.ui.theme.Lab
 import java.io.File
 
 /**
@@ -76,10 +68,11 @@ fun GenbankScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     val share: (Genome) -> Unit = { shared -> viewModel.shareGenome(shared) { file -> context.shareFile(file, chooserTitle) } }
 
     LazyColumn(
-        modifier = modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End)),
-        contentPadding = PaddingValues(12.dp),
+        modifier = modifier.windowInsetsPadding(WindowInsets.safeDrawing),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item { Eyebrow(stringResource(R.string.tab_genbank), Modifier.padding(start = 2.dp, top = 4.dp, bottom = 2.dp)) }
         item {
             CurrentGenomeCard(
                 genome = genome,
@@ -92,13 +85,19 @@ fun GenbankScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                 onImport = { importer.launch(arrayOf("*/*")) },
             )
         }
-        item { SectionTitle(stringResource(R.string.genbank_saved)) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 2.dp, top = 10.dp)) {
+                Eyebrow(stringResource(R.string.genbank_saved), Modifier.weight(1f, fill = false))
+                if (entries.isNotEmpty()) ValueChip(entries.size.toString(), Modifier.padding(start = 8.dp))
+            }
+        }
         if (entries.isEmpty()) {
             item {
                 Text(
                     text = stringResource(R.string.genbank_empty),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Lab.TextDim,
+                    modifier = Modifier.padding(horizontal = 2.dp),
                 )
             }
         }
@@ -148,89 +147,74 @@ private fun CurrentGenomeCard(
     onDefault: () -> Unit,
     onImport: () -> Unit,
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OrganismThumbnail(
-                    picture,
-                    Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                )
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.genbank_in_editor),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = genome.name.ifBlank { stringResource(R.string.genome_untitled) },
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = genomeSummary(genome),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Button(onClick = onSave) { Text(stringResource(R.string.genbank_save)) }
-                OutlinedButton(onClick = onShare) { Text(stringResource(R.string.genbank_share)) }
-                OutlinedButton(onClick = onFromMicroscope, enabled = microscopeReady) { Text(stringResource(R.string.genbank_from_microscope)) }
-                OutlinedButton(onClick = onDefault) { Text(stringResource(R.string.genbank_default)) }
-                OutlinedButton(onClick = onImport) { Text(stringResource(R.string.genbank_import)) }
-            }
-            if (!microscopeReady) {
+    Panel(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Thumbnail(picture, CURRENT_THUMBNAIL)
+            Column(Modifier.weight(1f)) {
+                Eyebrow(stringResource(R.string.genbank_in_editor))
                 Text(
-                    text = stringResource(R.string.genbank_microscope_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = genome.name.ifBlank { stringResource(R.string.genome_untitled) },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Lab.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Text(text = genomeSummary(genome), style = MaterialTheme.typography.bodySmall, color = Lab.TextDim)
             }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 14.dp),
+        ) {
+            LabButton(stringResource(R.string.genbank_save), onClick = onSave, icon = R.drawable.ic_save, kind = ButtonKind.PRIMARY)
+            LabButton(stringResource(R.string.genbank_share), onClick = onShare, icon = R.drawable.ic_share)
+            LabButton(stringResource(R.string.genbank_from_microscope), onClick = onFromMicroscope, icon = R.drawable.ic_tab_microscope, enabled = microscopeReady)
+            LabButton(stringResource(R.string.genbank_default), onClick = onDefault, icon = R.drawable.ic_reset)
+            LabButton(stringResource(R.string.genbank_import), onClick = onImport, icon = R.drawable.ic_import)
+        }
+        if (!microscopeReady) {
+            Text(
+                text = stringResource(R.string.genbank_microscope_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = Lab.TextFaint,
+                modifier = Modifier.padding(top = 10.dp),
+            )
         }
     }
 }
 
+/** A saved genome: a tap opens it in the editor. */
 @Composable
 private fun GenbankRow(entry: GenbankEntry, picture: PreviewFrame?, onLoad: () -> Unit, onShare: () -> Unit, onDelete: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onLoad),
+    Panel(
+        onClick = onLoad,
+        contentPadding = PaddingValues(start = 8.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(8.dp),
-        ) {
-            OrganismThumbnail(
-                picture,
-                Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(10.dp)),
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Thumbnail(picture, ROW_THUMBNAIL)
             Column(Modifier.weight(1f)) {
-                Text(entry.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    text = genomeSummary(entry.genome),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(entry.name, style = MaterialTheme.typography.titleSmall, color = Lab.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = genomeSummary(entry.genome), style = MaterialTheme.typography.bodySmall, color = Lab.TextDim)
             }
-            IconButton(onClick = onShare) {
-                Icon(painterResource(R.drawable.ic_share), contentDescription = stringResource(R.string.genbank_share))
-            }
-            IconButton(onClick = onDelete) {
-                Icon(painterResource(R.drawable.ic_tool_delete), contentDescription = stringResource(R.string.genbank_delete))
-            }
+            LabIconButton(R.drawable.ic_share, stringResource(R.string.genbank_share), onShare, size = 40.dp, iconSize = 20.dp)
+            LabIconButton(R.drawable.ic_tool_delete, stringResource(R.string.genbank_delete), onDelete, size = 40.dp, iconSize = 20.dp)
         }
     }
+}
+
+/** An organism picture in a small framed window. */
+@Composable
+private fun Thumbnail(picture: PreviewFrame?, size: Dp) {
+    val shape = MaterialTheme.shapes.small
+    OrganismThumbnail(
+        picture,
+        Modifier
+            .size(size)
+            .clip(shape)
+            .border(1.dp, Lab.Hairline, shape),
+    )
 }
 
 /** «Фагоцит · режимов: 2»: the initial cell type and how many modes the organism uses. */
@@ -252,3 +236,6 @@ private fun Context.shareFile(file: File, title: String) {
     }
     startActivity(Intent.createChooser(send, title))
 }
+
+private val CURRENT_THUMBNAIL = 76.dp
+private val ROW_THUMBNAIL = 56.dp

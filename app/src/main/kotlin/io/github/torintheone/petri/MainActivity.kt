@@ -1,5 +1,6 @@
 package io.github.torintheone.petri
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -20,11 +21,19 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) viewModel.handleLaunch(intent)
         setContent {
             PetriTheme {
                 PetriApp(viewModel)
             }
         }
+    }
+
+    /** A launch with extras while the app is already open (see [PetriViewModel.handleLaunch]). */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        viewModel.handleLaunch(intent)
     }
 
     override fun onStart() {

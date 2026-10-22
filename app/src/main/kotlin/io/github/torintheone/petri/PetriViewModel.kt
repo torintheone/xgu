@@ -1,6 +1,7 @@
 package io.github.torintheone.petri
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
@@ -29,6 +30,8 @@ import io.github.torintheone.petri.sim.SubstrateSettings
 import io.github.torintheone.petri.sim.TimeMode
 import io.github.torintheone.petri.sim.World
 import io.github.torintheone.petri.sim.saveState
+import io.github.torintheone.petri.ui.Tab
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -74,9 +77,19 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     @Volatile
     private var restored = false
 
+    /** Completes once [restore] has put the last dish and genome back. */
+    private val restoreDone = CompletableDeferred<Unit>()
+
     val runner: SimulationRunner
     val camera = DishCamera()
     val editor = GenomeEditor(viewModelScope)
+
+    /** The tab on screen; kept here so that it survives rotation and a launch request can switch it. */
+    var tab by mutableStateOf(Tab.MICROSCOPE)
+
+    /** The population graph under the readings of the microscope. */
+    var graphShown by mutableStateOf(false)
+        private set
 
     var timeMode by mutableStateOf(TimeMode.OBSERVE)
         private set
@@ -90,6 +103,21 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     /** Status panel numbers, refreshed a few times per second while someone collects them. */
     val stats: Flow<SimStats>
+
+    /** Game hours per real second, measured every half second while someone collects it. */
+    val speed: Flow<Double> = flow {
+        var lastAge = runner.stats.ageHours
+        var lastTime = System.nanoTime()
+        while (true) {
+            delay(SPEED_SAMPLE_MS)
+            val age = runner.stats.ageHours
+            val time = System.nanoTime()
+            // A dish loaded or sterilized in between makes the age jump back: no speed then.
+            emit(((age - lastAge) / ((time - lastTime) / NANOS_PER_SECOND)).coerceAtLeast(0.0))
+            lastAge = age
+            lastTime = time
+        }
+    }.distinctUntilChanged()
 
     /** The population graph, refreshed every half second while it is shown. */
     val history: Flow<List<PopulationHistory.Sample>> = flow {
@@ -145,6 +173,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
             runner.post { it.populate(Genome.default(), cellCount = STARTING_CELLS, foodFraction = STARTING_FOOD) }
         }
         restored = true
+        restoreDone.complete(Unit)
         withContext(Dispatchers.IO) { runCatching { offerPresets() } }
         refreshGenbank()
         refreshDishes()
@@ -170,6 +199,35 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     fun selectTool(newTool: Tool) {
         tool = newTool
+    }
+
+    fun toggleGraph() {
+        graphShown = !graphShown
+    }
+
+    /**
+     * Opens what a launch [intent] asks for, once the last dish is back: [EXTRA_TAB] (a [Tab] name),
+     * [EXTRA_PRESET] (a [Preset] name, put into the editor) and [EXTRA_INSPECT] (diagnostics on the cell nearest
+     * the middle of the dish, with the graph). The screenshot script (scripts/screenshots.sh) uses them.
+     */
+    fun handleLaunch(intent: Intent?) {
+        val extras = intent?.extras ?: return
+        val requestedTab = extras.getString(EXTRA_TAB)?.let { name -> Tab.entries.firstOrNull { it.name.equals(name, ignoreCase = true) } }
+        val preset = extras.getString(EXTRA_PRESET)?.let { name -> Preset.entries.firstOrNull { it.name.equals(name, ignoreCase = true) } }
+        val inspect = extras.getBoolean(EXTRA_INSPECT, false)
+        viewModelScope.launch {
+            restoreDone.await()
+            requestedTab?.let { tab = it }
+            preset?.let { editor.load(it.genome(getApplication<Application>().getString(it.title))) }
+            if (inspect) {
+                tool = Tool.DIAGNOSTICS
+                graphShown = true
+                runner.post { world ->
+                    val uid = world.cellAt(0f, 0f, slack = Float.MAX_VALUE)
+                    viewModelScope.launch { select(uid) }
+                }
+            }
+        }
     }
 
     /** The world stands still while the app is in the background, and the dish and genome are saved. */
@@ -414,14 +472,21 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         runner.close()
     }
 
-    private companion object {
-        const val STATS_REFRESH_MS = 100L
-        const val HISTORY_REFRESH_MS = 500L
-        const val STARTING_CELLS = 30
-        const val STARTING_FOOD = 0.5f
+    companion object {
+        /** Launch extras, see [handleLaunch]. */
+        const val EXTRA_TAB = "petri.tab"
+        const val EXTRA_PRESET = "petri.preset"
+        const val EXTRA_INSPECT = "petri.inspect"
+
+        private const val STATS_REFRESH_MS = 100L
+        private const val HISTORY_REFRESH_MS = 500L
+        private const val SPEED_SAMPLE_MS = 500L
+        private const val NANOS_PER_SECOND = 1e9
+        private const val STARTING_CELLS = 30
+        private const val STARTING_FOOD = 0.5f
 
         /** Mass the feeding tool gives a cell, ng. */
-        const val FEED_MASS = 0.5f
+        private const val FEED_MASS = 0.5f
     }
 }
 

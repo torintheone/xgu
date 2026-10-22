@@ -19,11 +19,16 @@ import kotlin.math.sin
 /** Background of the preview and of thumbnails: the same dark medium as the dish. */
 val MediumColor = Color(0xFF0B1418)
 
-/** A small picture of an organism, fitted into the available space. */
+/** A small picture of an organism, fitted into the available space, over a faint grid like a micrograph. */
 @Composable
 fun OrganismThumbnail(frame: PreviewFrame?, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         drawRect(MediumColor)
+        val step = size.minDimension / THUMBNAIL_GRID
+        for (k in 1 until THUMBNAIL_GRID) {
+            drawLine(ThumbnailGrid, Offset(step * k, 0f), Offset(step * k, size.height), strokeWidth = 1f)
+            drawLine(ThumbnailGrid, Offset(0f, step * k), Offset(size.width, step * k), strokeWidth = 1f)
+        }
         if (frame == null || frame.cellCount == 0) return@Canvas
         val scale = min(size.width, size.height) / (2f * max(frame.extent, MIN_EXTENT_UM) * FIT_MARGIN)
         drawOrganism(frame, scale, highlightMode = -1)
@@ -140,6 +145,8 @@ private fun DrawScope.drawCell(center: Offset, r: Float, angle: Float, color: Co
 }
 
 private val BondColor = Color(0x80E0F2F1)
+private val ThumbnailGrid = Color(0x0FFFFFFF)
+private const val THUMBNAIL_GRID = 6
 private val HighlightColor = Color(0xFFFFFFFF)
 private val NucleusColor = Color(0xCC10202A)
 private val ChloroplastColor = Color(0xFF3FBF4A)
