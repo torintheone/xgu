@@ -128,6 +128,7 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                     onChange = editor::changeMode,
                     onNewKind = viewModel::newChildKind,
                     onOpenFull = { viewModel.changeEditorLook(false) },
+                    allowedTypes = viewModel.allowedTypes,
                 )
             } else {
                 SwitchRow(
@@ -142,6 +143,7 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                     snapping = editor.snapping,
                     onChange = editor::changeMode,
                     onMakeInitial = { editor.makeInitial(editor.editedMode) },
+                    allowedTypes = viewModel.allowedTypes,
                 )
             }
             Spacer(Modifier.height(16.dp))
@@ -497,6 +499,7 @@ private fun ModeEditor(
     snapping: Boolean,
     onChange: ((Mode) -> Mode) -> Unit,
     onMakeInitial: () -> Unit,
+    allowedTypes: Set<CellType>,
 ) {
     val mode = genome.modes[index]
     val levels = if (snapping) SNAP_LEVELS else 0
@@ -530,7 +533,8 @@ private fun ModeEditor(
         }
         ChoiceRow(
             label = stringResource(R.string.param_cell_type),
-            options = CellType.entries,
+            // In a level only its types, and the mode's own type, which a loaded genome may bring.
+            options = CellType.entries.filter { it in allowedTypes || it == mode.cellType },
             selected = mode.cellType,
             optionText = { typeNames[it.ordinal] },
             onSelect = { type -> onChange { it.copy(cellType = type) } },

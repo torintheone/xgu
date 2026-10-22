@@ -128,6 +128,18 @@ class DishCamera {
         invalidate?.invoke()
     }
 
+    /** Shows the whole dish at once and keeps doing so, also when a dish of another size comes in. */
+    fun fitWholeDish() {
+        synchronized(this) {
+            flingX = 0f
+            flingY = 0f
+            animating = false
+            followsFit = true
+            refresh()
+        }
+        invalidate?.invoke()
+    }
+
     /** Moves a glide or a smooth move on to [now]; true while the view is still moving. Called once per frame. */
     @Synchronized
     fun advance(now: Long): Boolean {

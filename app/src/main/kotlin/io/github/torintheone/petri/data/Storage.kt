@@ -16,7 +16,8 @@ data class GenbankEntry(val name: String, val genome: Genome, val modified: Long
 data class DishEntry(val name: String, val modified: Long, val bytes: Long)
 
 /**
- * Files in the app's own folder (SPEC «Сохранение»): the genome bank, saved dishes and the autosave.
+ * Files in the app's own folder (SPEC «Сохранение»): the genome bank, saved dishes, the autosave and the free dish
+ * put aside during a campaign level.
  * A file name is the item's name in URL-safe Base64, so any name works on any file system and saving
  * under an existing name replaces that item. All methods block: call them off the main thread.
  */
@@ -24,6 +25,7 @@ class Storage(context: Context) {
     private val genomeDir = File(context.filesDir, "genomes")
     private val dishDir = File(context.filesDir, "dishes")
     private val autosaveDir = File(context.filesDir, "autosave")
+    private val sandboxDir = File(context.filesDir, "sandbox")
     private val shareDir = File(context.cacheDir, "share")
     private val presetsFile = File(context.filesDir, "presets.txt")
     private val legacyPresetsMarker = File(context.filesDir, "presets-1")
@@ -84,6 +86,21 @@ class Storage(context: Context) {
     fun readAutosaveDish(): ByteArray? = File(autosaveDir, "dish" + DishCodec.EXTENSION).takeIf { it.exists() }?.readBytes()
 
     fun readAutosaveGenome(): String? = File(autosaveDir, "genome" + GenomeCodec.EXTENSION).takeIf { it.exists() }?.readText()
+
+    // ---- The free dish, put aside while a campaign level is played ----
+
+    fun writeSandbox(dish: ByteArray, genome: Genome) {
+        write(File(sandboxDir, "dish" + DishCodec.EXTENSION), dish)
+        write(File(sandboxDir, "genome" + GenomeCodec.EXTENSION), GenomeCodec.encode(genome).toByteArray())
+    }
+
+    fun readSandboxDish(): ByteArray? = File(sandboxDir, "dish" + DishCodec.EXTENSION).takeIf { it.exists() }?.readBytes()
+
+    fun readSandboxGenome(): String? = File(sandboxDir, "genome" + GenomeCodec.EXTENSION).takeIf { it.exists() }?.readText()
+
+    fun clearSandbox() {
+        sandboxDir.listFiles()?.forEach { it.delete() }
+    }
 
     // ---- Sharing ----
 

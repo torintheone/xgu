@@ -6,6 +6,7 @@
     <string name="tab_genome">Геном</string>
     <string name="tab_environment">Среда</string>
     <string name="tab_genbank">Генбанк</string>
+    <string name="tab_campaign">Кампания</string>
 
     <string name="stat_age">Возраст</string>
     <string name="stat_cells">Клетки</string>
@@ -468,4 +469,140 @@
     <string name="msg_dish_loaded">Чашка «%1$s» загружена</string>
     <string name="msg_dish_sterilized">Чашка стерилизована</string>
     <string name="msg_dish_file_wrong">Файл чашки повреждён, загрузить его не получилось</string>
+
+    <!-- Campaign. -->
+    <string name="campaign_title">Опыты</string>
+    <string name="campaign_stars">%1$d из %2$d</string>
+    <string name="campaign_intro">Двенадцать опытов шаг за шагом учат игре: от первой посаженной клетки до эволюции. Следующий опыт открывается, когда пройден предыдущий; за быстрое решение — больше звёзд.</string>
+    <string name="campaign_chapter">Глава %1$d · %2$s</string>
+    <string name="campaign_locked">Откроется после опыта %1$s</string>
+    <string name="campaign_current">Идёт сейчас</string>
+    <string name="level_number">Опыт %1$s</string>
+    <string name="level_goal">Цель</string>
+    <string name="level_conditions">Условия</string>
+    <string name="level_hint">Подсказка</string>
+    <string name="level_show_hint">Показать подсказку</string>
+    <string name="level_start">Начать</string>
+    <string name="level_restart">Начать заново</string>
+    <string name="level_continue">Продолжить</string>
+    <string name="level_leave">Выйти из опыта</string>
+    <string name="level_to_microscope">К микроскопу</string>
+    <string name="level_next">Следующий опыт</string>
+    <string name="level_stay">Остаться</string>
+    <string name="level_to_campaign">К кампании</string>
+    <string name="level_close">Закрыть</string>
+    <string name="dialog_leave_title">Выйти из опыта?</string>
+    <string name="dialog_leave_text">Чашка опыта пропадёт, вернутся ваши прежние чашка и геном. Пройти опыт можно будет снова.</string>
+    <string name="level_won_title">Опыт пройден!</string>
+    <string name="level_won_text">Цель достигнута за %1$s h.</string>
+    <string name="level_won_last">Это был последний опыт кампании. Поздравляем!</string>
+    <string name="level_lost_title">Опыт не удался</string>
+    <string name="level_lost_time">Время вышло, а цель не достигнута.</string>
+    <string name="level_lost_cells">Все ваши клетки погибли, а посадок больше нет.</string>
+    <string name="level_lost_advice">Попробуйте ещё раз — в описании опыта есть подсказка.</string>
+    <string name="level_status_won">Пройден</string>
+    <string name="level_status_lost">Не удался</string>
+    <string name="level_time">%1$s / %2$d h</string>
+    <string name="level_plantings">посадок: %1$d</string>
+    <string name="level_goals_open">Описание опыта</string>
+    <string name="level_banner">Идёт опыт %1$s «%2$s». Его условия заданы заранее и не меняются, а чашку нельзя заменить, пока опыт не окончен.</string>
+    <string name="stars_label">Звёзд: %1$d из 3</string>
+
+    <!-- Level goals: the sentence for the description and a short name for the readings. -->
+    <string name="goal_population">Вырастите %1$d клеток одновременно</string>
+    <string name="goal_population_short">Клетки</string>
+    <string name="goal_type">Вырастите %1$d клеток типа «%2$s»</string>
+    <string name="goal_organism">Вырастите организм из %1$d склеенных клеток</string>
+    <string name="goal_organism_short">Организм</string>
+    <string name="goal_biomass">Наберите %1$s нг массы всех ваших клеток</string>
+    <string name="goal_biomass_short">Масса</string>
+    <string name="goal_reach">Доведите клетку до оранжевого круга</string>
+    <string name="goal_reach_short">До цели</string>
+    <string name="goal_reach_done">в круге</string>
+    <string name="goal_reach_none">нет клеток</string>
+    <string name="goal_majority">Ваших клеток — не меньше %1$d %% от всех в чашке, и хотя бы %2$d</string>
+    <string name="goal_majority_short">Доля</string>
+    <string name="goal_rivals">Оставьте в чашке не больше %1$d чужих клеток</string>
+    <string name="goal_rivals_short">Чужие</string>
+    <string name="goal_species">Получите %1$d разных видов среди своих клеток</string>
+    <string name="goal_species_short">Виды</string>
+    <string name="goal_survive">Продержитесь %1$d h и сохраните хотя бы %2$d клеток</string>
+    <string name="goal_survive_short">Клетки к сроку</string>
+
+    <!-- Level conditions. -->
+    <string name="cond_time">На всё — %1$d h игрового времени</string>
+    <string name="cond_plantings">Посадок: %1$d</string>
+    <string name="cond_zone">Сажать можно только в голубом круге</string>
+    <string name="cond_types">Типы клеток: %1$s</string>
+    <string name="cond_dish">Чашка %1$s мм</string>
+    <string name="cond_no_food">Пища не появляется</string>
+    <string name="cond_little_food">Пищи мало</string>
+    <string name="cond_much_food">Пищи много</string>
+    <string name="cond_no_light">Света нет</string>
+    <string name="cond_dim_light">Свет тусклый</string>
+    <string name="cond_bright_light">Свет яркий</string>
+    <string name="cond_even_light">Свет ровный по всей чашке</string>
+    <string name="cond_gravity">Сила тяжести: клетки и пища тонут</string>
+    <string name="cond_radiation">Радиация: %1$d %%</string>
+    <string name="cond_deadly_walls">Стенки убивают клетки</string>
+    <string name="cond_rivals">В чашке уже живут чужие клетки</string>
+    <string name="cond_tools">Из инструментов — только синтезатор и диагностика</string>
+
+    <string name="msg_no_plantings">Посадок больше нет</string>
+    <string name="msg_outside_zone">Сажать можно только в голубом круге</string>
+    <string name="msg_forbidden_types">В этом опыте нельзя: %1$s</string>
+    <string name="msg_level_over">Опыт уже окончен</string>
+    <string name="msg_level_locked">Во время опыта этого сделать нельзя. Выйти из опыта можно на вкладке «Кампания».</string>
+
+    <!-- Chapter names. -->
+    <string-array name="chapter_titles">
+        <item>Первые шаги</item>
+        <item>Тело и движение</item>
+        <item>Испытания</item>
+        <item>Эволюция</item>
+    </string-array>
+
+    <!-- Level names, stories and hints, in the order of Campaign.levels. -->
+    <string-array name="level_titles">
+        <item>Первая колония</item>
+        <item>Свет вместо еды</item>
+        <item>Вместе</item>
+        <item>Всплыть</item>
+        <item>Пловец</item>
+        <item>Гигант</item>
+        <item>Тесно</item>
+        <item>Гонка во тьме</item>
+        <item>Опасные стенки</item>
+        <item>Мутации</item>
+        <item>Радиация</item>
+        <item>Экосистема</item>
+    </string-array>
+    <string-array name="level_stories">
+        <item>Маленькая чашка, пищи вдоволь. Посадите фагоциты и дайте им время: клетка, набрав массу, делится надвое, а её потомки — снова.</item>
+        <item>В этой чашке нет ни крошки пищи, зато её ровно заливает свет. Фагоциту здесь не выжить — нужны клетки, которые питаются светом.</item>
+        <item>До сих пор каждая клетка жила сама по себе. Пусть потомки после деления остаются склеенными — тогда из одной клетки вырастет целый организм.</item>
+        <item>В этой чашке есть сила тяжести: клетки и пища опускаются на дно. Сажать можно только внизу, а доставить клетку нужно в оранжевый круг наверху.</item>
+        <item>Чашку нужно пересечь снизу доверху. Фагоциты сами не плавают — организму понадобится жгутик.</item>
+        <item>Вырастите один организм из трёхсот склеенных клеток — настоящего гиганта.</item>
+        <item>В чашке уже живут бурые фагоциты, и они съедают пищу. Станьте большинством: не меньше 60 % клеток в чашке должны быть вашими.</item>
+        <item>Темно, есть только пища, а времени мало: 150 клеток нужно вырастить за 18 часов.</item>
+        <item>Стенки этой чашки смертельны: клетка, коснувшаяся края, гибнет. Вырастите 150 клеток.</item>
+        <item>Радиация понемногу меняет геномы, и каждый изменённый геном — новый вид. Дождитесь, пока среди ваших клеток будет шесть видов сразу.</item>
+        <item>Сильное излучение убивает клетки и портит геномы. Через 48 часов у вас должно остаться не меньше ста клеток.</item>
+        <item>Всё сразу: соседи-фагоциты, медленные фотоциты, мало пищи и мутации. Вырастите 300 клеток и станьте большинством.</item>
+    </string-array>
+    <string-array name="level_hints">
+        <item>Коснитесь чашки — синтезатор посадит клетку. Чтобы ждать меньше, нажмите кнопку скорости в правом нижнем углу и выберите ×4.</item>
+        <item>Откройте вкладку «Геном», нажмите на тип клетки и выберите фотоцит. Потом вернитесь к микроскопу и посадите клетки.</item>
+        <item>В редакторе генома включите «Потомки склеены». Фотоциты растут быстрее у источника света — светлого пятна на краю чашки.</item>
+        <item>Буйоцит — клетка-пузырь. Сделайте клетку буйоцитом, выключите ей деление и уменьшите плотность пузыря.</item>
+        <item>Пусть первая клетка делится вперёд-назад (1 — впереди, 2 — сзади), и потомки будут склеены. Потомку 1 дайте новый вид — фагоцит, потомку 2 — новый вид и сделайте его флагеллоцитом. Поворачивать их не нужно.</item>
+        <item>Фотоциты у света растут быстрее всех. Склейте потомков и поверните каждого на 90° — организм станет круглым, а не нитью.</item>
+        <item>Соседям нужна пища, а свет им не нужен.</item>
+        <item>Маленькая клетка находит пищу почти так же часто, как большая, а делится раньше. В разделе «Деление» выберите «Рано».</item>
+        <item>Сажайте клетки подальше от края. Пловцы здесь быстро погибают у стенки.</item>
+        <item>Мутаций тем больше, чем больше клеток. Подойдут и обычные фагоциты.</item>
+        <item>Выживает тот, кто размножается быстрее, чем гибнет. У источника света фотоциты делятся чаще всех.</item>
+        <item>Займите свет раньше медленных фотоцитов: посадите свои клетки у светлого пятна на краю чашки.</item>
+    </string-array>
 </resources>

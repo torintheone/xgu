@@ -15,16 +15,24 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.torintheone.petri.audio.MusicPlayer
+import io.github.torintheone.petri.data.CampaignProgress
 import io.github.torintheone.petri.data.DishEntry
 import io.github.torintheone.petri.data.GenbankEntry
 import io.github.torintheone.petri.data.Storage
 import io.github.torintheone.petri.render.DishCamera
 import io.github.torintheone.petri.render.DishGestures
+import io.github.torintheone.petri.sim.Campaign
+import io.github.torintheone.petri.sim.CellType
 import io.github.torintheone.petri.sim.DishCodec
 import io.github.torintheone.petri.sim.FormatException
 import io.github.torintheone.petri.sim.Genome
 import io.github.torintheone.petri.sim.GenomeCodec
 import io.github.torintheone.petri.sim.GrowthPreview
+import io.github.torintheone.petri.sim.Level
+import io.github.torintheone.petri.sim.LevelOutcome
+import io.github.torintheone.petri.sim.LevelSession
+import io.github.torintheone.petri.sim.LevelStatus
+import io.github.torintheone.petri.sim.PlantResult
 import io.github.torintheone.petri.sim.PopulationHistory
 import io.github.torintheone.petri.sim.Preset
 import io.github.torintheone.petri.sim.PreviewFrame
@@ -107,6 +115,34 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     var simpleEditor by mutableStateOf(preferences.getBoolean(KEY_SIMPLE_EDITOR, true))
         private set
 
+    // ---- Campaign ----
+
+    private val progress = CampaignProgress(application)
+
+    /** The campaign level being played, or null in the free dish. */
+    var activeLevel by mutableStateOf<Level?>(null)
+        private set
+
+    /** The latest verdict on [activeLevel], renewed a few times a second. */
+    var levelStatus by mutableStateOf<LevelStatus?>(null)
+        private set
+
+    /** A finished level whose result waits to be read; null when there is none. */
+    var levelResult by mutableStateOf<LevelStatus?>(null)
+        private set
+
+    /** The level whose description is open, from the campaign or from the goals on the microscope. */
+    var briefing by mutableStateOf<Level?>(null)
+
+    /** Stars earned per level id; a level without an entry is not won yet. */
+    val stars: SnapshotStateMap<String, Int> = mutableStateMapOf()
+
+    /** The result of the running level has been shown and recorded. */
+    private var resultHandled = false
+
+    /** A level was just started: verdicts left over from the dish before are ignored until the new one speaks. */
+    private var freshRun = false
+
     /** The tab on screen; kept here so that it survives rotation and a launch request can switch it. */
     var tab by mutableStateOf(Tab.MICROSCOPE)
 
@@ -184,7 +220,9 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
                 delay(STATS_REFRESH_MS)
             }
         }.distinctUntilChanged()
+        for (level in Campaign.levels) progress.stars(level.id).takeIf { it > 0 }?.let { stars[level.id] = it }
         viewModelScope.launch { restore() }
+        viewModelScope.launch { watchLevel() }
     }
 
     /** Brings back the dish and genome from the last autosave, or starts a fresh dish. */
@@ -201,6 +239,18 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
             runner.replaceWorld(dish)
         } else {
             runner.post { it.populate(Genome.default(), cellCount = STARTING_CELLS, foodFraction = STARTING_FOOD) }
+        }
+        // A level that was being played goes on in its dish, which the autosave kept.
+        val level = progress.activeLevel?.let(Campaign::level)
+        if (level != null && dish != null) {
+            val used = progress.plantingsUsed
+            runner.post { world ->
+                world.level = LevelSession(level, used)
+                world.judgeLevel()
+            }
+            activeLevel = level
+        } else {
+            progress.activeLevel = null
         }
         restored = true
         restoreDone.complete(Unit)
@@ -252,8 +302,26 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     }
 
     fun selectTool(newTool: Tool) {
-        tool = newTool
+        if (newTool in tools) tool = newTool
     }
+
+    /** Tools the dock offers: in a level only those its rules allow. */
+    val tools: List<Tool>
+        get() {
+            val level = activeLevel ?: return Tool.entries
+            return Tool.entries.filter { tool ->
+                when (tool) {
+                    Tool.SYNTHESIZER, Tool.DIAGNOSTICS -> true
+                    Tool.TWEEZERS -> level.tweezers
+                    Tool.FEED -> level.feeding
+                    Tool.DELETE -> level.removal
+                }
+            }
+        }
+
+    /** Cell types the genome editor offers: in a level only those its rules allow. */
+    val allowedTypes: Set<CellType>
+        get() = activeLevel?.allowedTypes ?: ALL_TYPES
 
     fun toggleGraph() {
         graphShown = !graphShown
@@ -263,8 +331,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
      * Opens what a launch [intent] asks for, once the last dish is back: [EXTRA_TAB] (a [Tab] name),
      * [EXTRA_PRESET] (a [Preset] name, put into the editor), [EXTRA_INSPECT] (diagnostics on the cell nearest
      * the middle of the dish, with the graph), [EXTRA_SPEED] (a speed of «Наблюдение»), [EXTRA_SPEEDS]
-     * (the choice of speeds open) and [EXTRA_EDITOR] («simple» or «full» genome editor, for this run only).
-     * The screenshot script (scripts/screenshots.sh) uses them.
+     * (the choice of speeds open), [EXTRA_EDITOR] («simple» or «full» genome editor, for this run only),
+     * [EXTRA_LEVEL] (a campaign level to start), [EXTRA_BRIEFING] (a level whose description to open) and
+     * [EXTRA_PLANT] (cells of the edited genome to plant, «x,y/x,y» in µm). The screenshot script
+     * (scripts/screenshots.sh) uses them.
      */
     fun handleLaunch(intent: Intent?) {
         val extras = intent?.extras ?: return
@@ -274,8 +344,15 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         val requestedSpeed = extras.getFloat(EXTRA_SPEED, 0f)
         val speeds = extras.getBoolean(EXTRA_SPEEDS, false)
         val look = extras.getString(EXTRA_EDITOR)
+        val levelToStart = extras.getString(EXTRA_LEVEL)?.let(Campaign::level)
+        val describe = extras.getString(EXTRA_BRIEFING)?.let(Campaign::level)
+        val plantAt = extras.getString(EXTRA_PLANT)?.split('/')?.mapNotNull { pair ->
+            val numbers = pair.split(',').mapNotNull { it.trim().toFloatOrNull() }
+            if (numbers.size == 2) numbers[0] to numbers[1] else null
+        }.orEmpty()
         viewModelScope.launch {
             restoreDone.await()
+            levelToStart?.let { startLevel(it) }
             requestedTab?.let { tab = it }
             if (requestedSpeed > 0f) selectSpeed(requestedSpeed.toDouble())
             choosingSpeed = speeds
@@ -284,6 +361,8 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
                 EDITOR_FULL -> simpleEditor = false
             }
             preset?.let { editor.load(it.genome(getApplication<Application>().getString(it.title))) }
+            describe?.let { briefing = it }
+            for ((x, y) in plantAt) plant(x, y)
             if (inspect) {
                 tool = Tool.DIAGNOSTICS
                 graphShown = true
@@ -346,11 +425,9 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     }
 
     override fun onTap(x: Float, y: Float, slack: Float) {
+        if (tool !in tools) return
         when (tool) {
-            Tool.SYNTHESIZER -> {
-                val planted = editor.genome.value
-                runner.post { it.addCell(planted, x, y) }
-            }
+            Tool.SYNTHESIZER -> plant(x, y)
             Tool.FEED -> runner.post { world ->
                 val uid = world.cellAt(x, y, slack)
                 if (uid != 0) world.feedCell(uid, FEED_MASS) else world.addFood(x, y)
@@ -508,6 +585,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     }
 
     fun loadDish(entry: DishEntry) {
+        if (activeLevel != null) {
+            say(R.string.msg_level_locked)
+            return
+        }
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { runCatching { DishCodec.decode(storage.readDish(entry.name)) } }
             result.onSuccess { world ->
@@ -528,6 +609,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     /** «Стерилизовать»: no cells, no food, age 0; the settings stay. */
     fun sterilize() {
+        if (activeLevel != null) {
+            say(R.string.msg_level_locked)
+            return
+        }
         select(0)
         runner.post { it.sterilize() }
         say(R.string.msg_dish_sterilized)
@@ -537,6 +622,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     /** Changes the medium of the running dish (the «Среда» tab); values are clamped to their ranges. */
     fun changeSettings(change: (SubstrateSettings) -> SubstrateSettings) {
+        if (activeLevel != null) return
         val next = change(settingsState.value).sanitized()
         settingsState.value = next
         runner.post { it.applySettings(next) }
@@ -548,6 +634,140 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     private suspend fun refreshDishes() {
         dishesState.value = withContext(Dispatchers.IO) { runCatching { storage.dishes() }.getOrDefault(emptyList()) }
+    }
+
+    // ---- Campaign ----
+
+    /** The synthesizer: plants a cell of the edited genome, keeping to the level's rules. */
+    private fun plant(x: Float, y: Float) {
+        val genome = editor.genome.value
+        runner.post { world ->
+            val result = world.plant(genome, x, y)
+            val used = world.level?.plantingsUsed
+            viewModelScope.launch { afterPlanting(result, genome, used) }
+        }
+    }
+
+    private fun afterPlanting(result: PlantResult, genome: Genome, plantingsUsed: Int?) {
+        val level = activeLevel
+        if (level != null && plantingsUsed != null) progress.plantingsUsed = plantingsUsed
+        when (result) {
+            PlantResult.PLANTED, PlantResult.NO_ROOM -> Unit
+            PlantResult.NO_PLANTINGS_LEFT -> say(R.string.msg_no_plantings)
+            PlantResult.OUTSIDE_ZONE -> say(R.string.msg_outside_zone)
+            PlantResult.LEVEL_OVER -> say(R.string.msg_level_over)
+            PlantResult.FORBIDDEN_TYPES -> {
+                val names = getApplication<Application>().resources.getStringArray(R.array.cell_types)
+                say(R.string.msg_forbidden_types, level?.forbiddenTypes(genome).orEmpty().joinToString { names[it.ordinal] })
+            }
+        }
+    }
+
+    /**
+     * Starts [level] in a fresh dish of its own, with the level's starting genome in the editor. The free dish and
+     * genome are put aside and come back when the level is left.
+     */
+    fun startLevel(level: Level) {
+        if (!restored) return
+        if (activeLevel == null) {
+            val genome = editor.genome.value
+            runner.post { world ->
+                val state = world.saveState()
+                ioScope.launch { runCatching { storage.writeSandbox(DishCodec.encode(state), genome) } }
+            }
+        }
+        val world = level.createWorld()
+        levelStatus = world.level?.status
+        select(0)
+        settingsState.value = level.settings
+        runner.replaceWorld(world)
+        editor.load(level.starter ?: Genome.default())
+        activeLevel = level
+        levelResult = null
+        briefing = null
+        resultHandled = false
+        freshRun = true
+        progress.activeLevel = level.id
+        progress.plantingsUsed = 0
+        tool = Tool.SYNTHESIZER
+        if (timeMode == TimeMode.FREEZE) selectTimeMode(TimeMode.OBSERVE)
+        camera.fitWholeDish()
+        tab = Tab.MICROSCOPE
+        autosave()
+    }
+
+    fun restartLevel() {
+        activeLevel?.let(::startLevel)
+    }
+
+    /** The level after the one just played, or null after the last. */
+    val nextLevel: Level?
+        get() = activeLevel?.let { Campaign.next(it.id) }
+
+    /** Leaves the level: the free dish and genome put aside at its start come back. */
+    fun leaveLevel() {
+        if (activeLevel == null) return
+        activeLevel = null
+        levelStatus = null
+        levelResult = null
+        briefing = null
+        progress.activeLevel = null
+        progress.plantingsUsed = 0
+        viewModelScope.launch {
+            val (dish, genome) = withContext(Dispatchers.IO) {
+                val dish = runCatching { storage.readSandboxDish()?.let(DishCodec::decode) }.getOrNull()
+                val genome = runCatching { storage.readSandboxGenome()?.let(GenomeCodec::decode) }.getOrNull()
+                dish to genome
+            }
+            val world = dish ?: World(SubstrateSettings(), seed = System.currentTimeMillis()).apply {
+                populate(Genome.default(), cellCount = STARTING_CELLS, foodFraction = STARTING_FOOD)
+            }
+            select(0)
+            settingsState.value = world.settings
+            runner.replaceWorld(world)
+            editor.load(genome ?: Genome.default())
+            camera.fitWholeDish()
+            withContext(Dispatchers.IO) { runCatching { storage.clearSandbox() } }
+            autosave()
+        }
+    }
+
+    /** Closes the result of a finished level; the dish stays on screen. */
+    fun dismissResult() {
+        levelResult = null
+    }
+
+    /** Opens the result of the finished level again (a tap on its goals). */
+    fun showResult() {
+        val status = levelStatus ?: return
+        if (status.outcome != LevelOutcome.PLAYING) levelResult = status
+    }
+
+    /** Is level [index] in [Campaign.levels] open: the first one, and every one after a won level. */
+    fun isUnlocked(level: Level): Boolean {
+        val index = Campaign.levels.indexOf(level)
+        return index <= 0 || stars.containsKey(Campaign.levels[index - 1].id)
+    }
+
+    /** Follows the verdict on the level being played: its goals on screen, then its result once it is decided. */
+    private suspend fun watchLevel() {
+        while (true) {
+            delay(LEVEL_REFRESH_MS)
+            val level = activeLevel ?: continue
+            val status = runner.stats.level?.takeIf { it.levelId == level.id } ?: continue
+            if (freshRun) {
+                if (status.outcome != LevelOutcome.PLAYING) continue
+                freshRun = false
+            }
+            levelStatus = status
+            if (status.outcome == LevelOutcome.PLAYING || resultHandled) continue
+            resultHandled = true
+            if (status.outcome == LevelOutcome.WON) {
+                progress.recordWin(level.id, status.stars)
+                stars[level.id] = maxOf(stars[level.id] ?: 0, status.stars)
+            }
+            levelResult = status
+        }
     }
 
     // ---- Messages ----
@@ -577,6 +797,9 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         const val EXTRA_SPEED = "petri.speed"
         const val EXTRA_SPEEDS = "petri.speeds"
         const val EXTRA_EDITOR = "petri.editor"
+        const val EXTRA_LEVEL = "petri.level"
+        const val EXTRA_BRIEFING = "petri.briefing"
+        const val EXTRA_PLANT = "petri.plant"
         private const val EDITOR_SIMPLE = "simple"
         private const val EDITOR_FULL = "full"
 
@@ -589,6 +812,8 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         private const val ZOOM_STEP = 1.6f
 
         private const val STATS_REFRESH_MS = 100L
+        private const val LEVEL_REFRESH_MS = 250L
+        private val ALL_TYPES = CellType.entries.toSet()
         private const val HISTORY_REFRESH_MS = 500L
         private const val SPEED_SAMPLE_MS = 500L
         private const val NANOS_PER_SECOND = 1e9

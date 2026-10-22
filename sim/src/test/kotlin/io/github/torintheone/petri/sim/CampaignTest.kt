@@ -94,6 +94,26 @@ class CampaignTest {
     fun `4-3 photocytes win the crowded dish`() = assertWon(play("4-3", photocytes, nearLight + listOf(0f to 150f)))
 
     @Test
+    fun `the hints of the first chapters lead to a win`() {
+        // 1-3: only «Потомки склеены» switched on for photocytes, nothing turned.
+        val gluedPhotocytes = genome { it[0] = it[0].copy(cellType = CellType.PHOTOCYTE, makeAdhesin = true) }
+        assertWon(play("1-3", gluedPhotocytes, nearLight.take(2)))
+        // 2-1: a bubble that does not divide, its density lowered a few steps.
+        val bubble = genome {
+            it[0] = it[0].copy(cellType = CellType.BUOYOCYTE, splitMass = Mode.SPLIT_NEVER, density = ProgrammableValue.constant(0.3f))
+        }
+        assertWon(play("2-1", bubble, inBottomZone.take(3)))
+        // 2-2: built in the simple editor: split front to back, glued; child 1 a new phagocyte, child 2 a new
+        // flagellocyte; new kinds do not divide.
+        val swimmer = genome {
+            it[0] = it[0].copy(makeAdhesin = true, splitAngle = 90f, child1Mode = 1, child2Mode = 2)
+            it[1] = it[1].copy(splitMass = Mode.SPLIT_NEVER)
+            it[2] = it[2].copy(cellType = CellType.FLAGELLOCYTE, splitMass = Mode.SPLIT_NEVER)
+        }
+        assertWon(play("2-2", swimmer, inBottomZone))
+    }
+
+    @Test
     fun `the campaign is in order`() {
         assertEquals(4, Campaign.chapters.size)
         assertTrue(Campaign.chapters.all { it.size == 3 })

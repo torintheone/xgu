@@ -76,6 +76,7 @@ import io.github.torintheone.petri.Tool
 import io.github.torintheone.petri.render.DishCamera
 import io.github.torintheone.petri.render.DishSurfaceView
 import io.github.torintheone.petri.sim.CellInfo
+import io.github.torintheone.petri.sim.LevelOutcome
 import io.github.torintheone.petri.sim.PopulationHistory
 import io.github.torintheone.petri.sim.SimConfig
 import io.github.torintheone.petri.sim.SimStats
@@ -154,18 +155,32 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
-            Readings(
-                stats = stats,
-                timeMode = viewModel.timeMode,
-                speed = viewModel.speed,
-                pace = pace,
-                graphShown = viewModel.graphShown,
-                history = viewModel.history,
-                onToggleGraph = viewModel::toggleGraph,
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .widthIn(max = if (wide) sidePanel else READINGS_MAX),
-            )
+            ) {
+                Readings(
+                    stats = stats,
+                    timeMode = viewModel.timeMode,
+                    speed = viewModel.speed,
+                    pace = pace,
+                    graphShown = viewModel.graphShown,
+                    history = viewModel.history,
+                    onToggleGraph = viewModel::toggleGraph,
+                )
+                viewModel.activeLevel?.let { level ->
+                    LevelGoals(
+                        level = level,
+                        status = viewModel.levelStatus,
+                        onClick = {
+                            val decided = viewModel.levelStatus?.outcome?.let { it != LevelOutcome.PLAYING } == true
+                            if (decided) viewModel.showResult() else viewModel.briefing = level
+                        },
+                    )
+                }
+            }
             if (wide) {
                 card(
                     Modifier
@@ -207,6 +222,7 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                     )
                 }
                 Dock(
+                    tools = viewModel.tools,
                     tool = viewModel.tool,
                     onTool = selectTool,
                     timeMode = viewModel.timeMode,
@@ -354,9 +370,10 @@ private fun Caption(subject: CaptionSubject, stamp: Int, tool: Tool, timeMode: T
     }
 }
 
-/** The five tools, then time: run or stop, and the speed, which opens the choice of speeds. */
+/** The tools (in a level only those it allows), then time: run or stop, and the speed, which opens the choice of speeds. */
 @Composable
 private fun Dock(
+    tools: List<Tool>,
     tool: Tool,
     onTool: (Tool) -> Unit,
     timeMode: TimeMode,
@@ -368,7 +385,7 @@ private fun Dock(
 ) {
     Panel(glass = true, shape = RoundedCornerShape(DOCK_RADIUS), contentPadding = PaddingValues(DOCK_PADDING)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            for (item in Tool.entries) {
+            for (item in tools) {
                 LabIconButton(
                     icon = item.icon,
                     contentDescription = stringResource(item.label),

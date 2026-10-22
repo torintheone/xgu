@@ -44,6 +44,10 @@ class WorldSnapshot {
     var food = FloatArray(0)
         private set
 
+    /** Zones of the level played in the dish, [ZONE_FLOATS] each: x, y, radius (µm) and kind ([ZONE_PLANTING] or [ZONE_TARGET]). */
+    val zones = FloatArray(MAX_ZONES * ZONE_FLOATS)
+    var zoneCount: Int = 0
+
     internal fun ensureCells(n: Int) {
         if (cellUids.size < n) {
             val size = grow(n)
@@ -70,6 +74,12 @@ class WorldSnapshot {
         const val CELL_FLOATS = 11
         const val BOND_FLOATS = 5
         const val FOOD_FLOATS = 4
+        const val ZONE_FLOATS = 4
+        const val MAX_ZONES = 4
+
+        /** Where the synthesizer may plant, and where the player's cells must get to. */
+        const val ZONE_PLANTING = 0f
+        const val ZONE_TARGET = 1f
 
         /** Cell flags the renderer draws. */
         const val VISIBLE_FLAGS = Cells.FLAG_MIRRORED or Cells.FLAG_PROTECTED or Cells.FLAG_TAIL_BLOCKED

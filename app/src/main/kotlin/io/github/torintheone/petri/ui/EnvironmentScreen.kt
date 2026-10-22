@@ -74,8 +74,24 @@ fun EnvironmentScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) 
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Eyebrow(stringResource(R.string.tab_environment), Modifier.padding(start = 2.dp, top = 4.dp))
+        val level = viewModel.activeLevel
+        if (level != null) {
+            // A level fixes its medium: no settings to change, no other dish to load.
+            Panel(
+                contentPadding = PaddingValues(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Lab.Accent.copy(alpha = CHIP_EDGE_ALPHA), MaterialTheme.shapes.medium),
+            ) {
+                Text(
+                    text = stringResource(R.string.level_banner, level.id, levelTitle(level)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Lab.Text,
+                )
+            }
+        }
         DishCard(viewModel)
-        SettingsEditor(viewModel)
+        if (level == null) SettingsEditor(viewModel)
         SoundSettings(viewModel)
         About(Modifier.padding(top = 6.dp))
     }
@@ -153,8 +169,10 @@ private fun DishCard(viewModel: PetriViewModel) {
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             LabButton(stringResource(R.string.env_save_dish), onClick = { saving = true }, icon = R.drawable.ic_save, kind = ButtonKind.PRIMARY)
-            LabButton(stringResource(R.string.env_load_dish), onClick = { loading = true }, icon = R.drawable.ic_open)
-            LabButton(stringResource(R.string.env_sterilize), onClick = { sterilizing = true }, icon = R.drawable.ic_sterilize, kind = ButtonKind.DANGER)
+            if (viewModel.activeLevel == null) {
+                LabButton(stringResource(R.string.env_load_dish), onClick = { loading = true }, icon = R.drawable.ic_open)
+                LabButton(stringResource(R.string.env_sterilize), onClick = { sterilizing = true }, icon = R.drawable.ic_sterilize, kind = ButtonKind.DANGER)
+            }
         }
     }
 

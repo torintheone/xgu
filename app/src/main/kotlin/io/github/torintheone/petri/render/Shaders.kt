@@ -32,6 +32,9 @@ internal object Shaders {
         uniform vec2 uLightSource;
         uniform float uLightBrightness;
         uniform float uLightSigma;
+        // Zones of a campaign level: centre and radius in dish radii, kind 0 (planting) or 1 (target).
+        uniform int uZoneCount;
+        uniform vec4 uZones[4];
         out vec4 fragColor;
 
         const vec3 MEDIUM_CENTER = vec3(0.050, 0.098, 0.118);
@@ -43,6 +46,10 @@ internal object Shaders {
         const float WALL_WIDTH = 0.016;
         const float HALO_WIDTH = 0.06;
         const float HALO_STRENGTH = 0.12;
+        const vec3 ZONE_PLANTING = vec3(0.373, 0.882, 0.918);
+        const vec3 ZONE_TARGET = vec3(1.000, 0.714, 0.282);
+        const float ZONE_DASHES = 28.0;
+        const float TAU = 6.2831853;
 
         void main() {
             float d = length(vLocal);
@@ -60,6 +67,20 @@ internal object Shaders {
                 light *= exp(-dot(toSource, toSource) / (2.0 * uLightSigma * uLightSigma));
             }
             medium += LIGHT_TINT * 0.10 * light;
+
+            // Level zones: a faint fill and a dashed edge.
+            for (int k = 0; k < 4; k++) {
+                if (k >= uZoneCount) break;
+                vec4 zone = uZones[k];
+                vec2 rel = vLocal - zone.xy;
+                float dz = length(rel);
+                vec3 tint = zone.w < 0.5 ? ZONE_PLANTING : ZONE_TARGET;
+                float fill = 1.0 - smoothstep(zone.z - pixel, zone.z, dz);
+                medium = mix(medium, tint, 0.07 * fill);
+                float edge = 1.0 - smoothstep(0.0, max(0.005, 1.5 * pixel), abs(dz - zone.z));
+                float dash = step(0.5, fract(atan(rel.y, rel.x) * ZONE_DASHES / TAU));
+                medium = mix(medium, tint, 0.8 * edge * dash);
+            }
             color = mix(color, medium, inside);
 
             float ring = smoothstep(1.0 - pixel, 1.0, d) * (1.0 - smoothstep(1.0 + wall - pixel, 1.0 + wall, d));

@@ -86,6 +86,16 @@ open_app --es petri.tab genome --es petri.preset SWIMMER --es petri.editor simpl
 shoot 12-genome-landscape 4
 adb shell settings put system user_rotation 0
 
+# The campaign: the list of levels, a level's description, a level being played and its result.
+open_app --es petri.tab campaign
+shoot 13-campaign 3
+open_app --es petri.tab campaign --es petri.briefing 2-2
+shoot 14-level-briefing 2
+open_app --es petri.level 2-2 --es petri.preset SWIMMER --es petri.plant 0,-350/-60,-330/60,-330 --ef petri.speed 1.0
+shoot 15-level 3
+open_app --ef petri.speed 4.0
+shoot 16-level-result 10
+
 demo exit
 
 if adb logcat -d -b crash | grep -q "Process: $PACKAGE"; then

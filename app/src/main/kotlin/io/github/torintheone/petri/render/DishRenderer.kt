@@ -27,6 +27,7 @@ class DishRenderer(
     private val requestFrame: () -> Unit,
 ) : GLSurfaceView.Renderer {
     private val viewProjection = FloatArray(9)
+    private val zoneData = FloatArray(WorldSnapshot.MAX_ZONES * WorldSnapshot.ZONE_FLOATS)
 
     // Where the cells were shown in the last frame, by place in the snapshot shown, with the cell that held it.
     private var shownX = FloatArray(0)
@@ -279,6 +280,13 @@ class DishRenderer(
         GLES30.glUniform2f(uniform(dishProgram, "uLightSource"), cos(snapshot.lightAngle), sin(snapshot.lightAngle))
         GLES30.glUniform1f(uniform(dishProgram, "uLightBrightness"), snapshot.lightBrightness)
         GLES30.glUniform1f(uniform(dishProgram, "uLightSigma"), if (radius > 0f) snapshot.lightSigma / radius else 0f)
+        val zones = if (radius > 0f) snapshot.zoneCount else 0
+        for (k in 0 until zones * WorldSnapshot.ZONE_FLOATS) {
+            // Positions and radii in dish radii; the kind stays as it is.
+            zoneData[k] = if (k % WorldSnapshot.ZONE_FLOATS == ZONE_KIND) snapshot.zones[k] else snapshot.zones[k] / radius
+        }
+        GLES30.glUniform1i(uniform(dishProgram, "uZoneCount"), zones)
+        if (zones > 0) GLES30.glUniform4fv(uniform(dishProgram, "uZones"), zones, zoneData, 0)
         GLES30.glBindVertexArray(dishArray)
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     }
@@ -382,6 +390,9 @@ class DishRenderer(
 
         /** x, y and radius of each cell for [cellNear]. */
         const val HIT_FLOATS = 3
+
+        /** Place of the kind in a zone's floats (see [WorldSnapshot.zones]). */
+        const val ZONE_KIND = 3
 
         const val PI_F = 3.1415927f
         const val TWO_PI = 6.2831855f

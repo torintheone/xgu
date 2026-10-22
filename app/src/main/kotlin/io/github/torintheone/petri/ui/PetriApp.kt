@@ -55,6 +55,7 @@ enum class Tab(@param:StringRes val title: Int, @param:DrawableRes val icon: Int
     GENOME(R.string.tab_genome, R.drawable.ic_tab_genome),
     ENVIRONMENT(R.string.tab_environment, R.drawable.ic_tab_environment),
     GENBANK(R.string.tab_genbank, R.drawable.ic_tab_genbank),
+    CAMPAIGN(R.string.tab_campaign, R.drawable.ic_tab_campaign),
 }
 
 /**
@@ -115,7 +116,9 @@ private fun TabContent(tab: Tab, viewModel: PetriViewModel, modifier: Modifier) 
             Tab.GENOME -> GenomeScreen(viewModel, Modifier.fillMaxSize())
             Tab.ENVIRONMENT -> EnvironmentScreen(viewModel, Modifier.fillMaxSize())
             Tab.GENBANK -> GenbankScreen(viewModel, Modifier.fillMaxSize())
+            Tab.CAMPAIGN -> CampaignScreen(viewModel, Modifier.fillMaxSize())
         }
+        LevelDialogs(viewModel)
         SnackbarHost(
             hostState = snackbar,
             modifier = Modifier

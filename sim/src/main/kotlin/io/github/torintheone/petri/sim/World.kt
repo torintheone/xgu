@@ -635,6 +635,20 @@ class World(
             f[o + 2] = food.radius(k)
             f[o + 3] = if (food.coated[k]) 1f else 0f
         }
+
+        val rules = level?.level
+        val zones = buildList {
+            rules?.plantZone?.let { add(it to WorldSnapshot.ZONE_PLANTING) }
+            rules?.goals?.forEach { if (it is Goal.Reach) add(it.zone to WorldSnapshot.ZONE_TARGET) }
+        }.take(WorldSnapshot.MAX_ZONES)
+        zones.forEachIndexed { k, (zone, kind) ->
+            val o = k * WorldSnapshot.ZONE_FLOATS
+            out.zones[o] = zone.x
+            out.zones[o + 1] = zone.y
+            out.zones[o + 2] = zone.radius
+            out.zones[o + 3] = kind
+        }
+        out.zoneCount = zones.size
     }
 
     internal companion object {
