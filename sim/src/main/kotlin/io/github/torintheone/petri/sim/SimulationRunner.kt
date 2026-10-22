@@ -8,7 +8,7 @@ enum class TimeMode {
     /** «Заморозка»: everything stands still. */
     FREEZE,
 
-    /** «Наблюдение»: [SimConfig.OBSERVE_HOURS_PER_SECOND] game hours per real second. */
+    /** «Наблюдение»: [SimConfig.OBSERVE_HOURS_PER_SECOND] game hours per real second, times [SimulationRunner.speed]. */
     OBSERVE,
 
     /** «Инкубация»: as fast as the device can go. */
@@ -55,6 +55,17 @@ class SimulationRunner(world: World) : AutoCloseable {
             wake()
         }
 
+    /**
+     * How many times faster than [SimConfig.OBSERVE_HOURS_PER_SECOND] «Наблюдение» runs: below 1 is slow motion.
+     * Clamped to [SimConfig.MIN_TIME_SPEED]..[SimConfig.MAX_TIME_SPEED].
+     */
+    @Volatile
+    var speed: Double = 1.0
+        set(value) {
+            field = value.coerceIn(SimConfig.MIN_TIME_SPEED, SimConfig.MAX_TIME_SPEED)
+            wake()
+        }
+
     /** True while the app is hidden: the world stands still whatever [timeMode] says. */
     @Volatile
     var isPaused: Boolean = false
@@ -85,6 +96,9 @@ class SimulationRunner(world: World) : AutoCloseable {
     var history: List<PopulationHistory.Sample> = emptyList()
         private set
     private var historyStamp = -1L
+
+    /** Snapshots handed out so far, see [WorldSnapshot.serial]. */
+    private var publishCount = 0L
 
     fun start() {
         check(thread == null) { "SimulationRunner is already started" }
@@ -150,10 +164,13 @@ class SimulationRunner(world: World) : AutoCloseable {
 
                 TimeMode.OBSERVE -> {
                     val frameStart = System.nanoTime()
-                    owedSteps += (frameStart - lastTick) * OBSERVE_STEPS_PER_NANO
+                    val pace = speed
+                    owedSteps += (frameStart - lastTick) * OBSERVE_STEPS_PER_NANO * pace
                     lastTick = frameStart
-                    val steps = minOf(owedSteps.toInt(), SimConfig.MAX_CATCH_UP_STEPS)
-                    owedSteps = minOf(owedSteps - steps, SimConfig.MAX_CATCH_UP_STEPS.toDouble())
+                    // Faster speeds may run more steps per frame; time owed beyond that is dropped.
+                    val catchUp = (SimConfig.MAX_CATCH_UP_STEPS * maxOf(1.0, pace)).toInt()
+                    val steps = minOf(owedSteps.toInt(), catchUp)
+                    owedSteps = minOf(owedSteps - steps, catchUp.toDouble())
                     repeat(steps) { world.step() }
                     if (steps > 0 || changed) publish()
                     val frameRest = FRAME_NANOS - (System.nanoTime() - frameStart)
@@ -188,7 +205,10 @@ class SimulationRunner(world: World) : AutoCloseable {
     }
 
     private fun publish() {
-        world.writeSnapshot(snapshots.back())
+        val back = snapshots.back()
+        world.writeSnapshot(back)
+        back.serial = ++publishCount
+        back.publishedNanos = System.nanoTime()
         snapshots.publish()
         stats = SimStats(
             ageHours = world.ageHours,

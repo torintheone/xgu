@@ -10,17 +10,57 @@ import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
  * Draws the dish from the latest simulation snapshot: medium and light, food, bonds, then cells.
  * All cells go out in one instanced draw call; their look is computed in the fragment shader (see [Shaders]).
+ *
+ * Between two steps of the world the cells glide from where they were shown to their new places, so slow time
+ * looks smooth: each move takes as long as the world took to make that step. [requestFrame] asks for the next
+ * frame while something still moves.
  */
 class DishRenderer(
     private val runner: SimulationRunner,
     private val camera: DishCamera,
+    private val requestFrame: () -> Unit,
 ) : GLSurfaceView.Renderer {
     private val viewProjection = FloatArray(9)
+
+    // Where the cells were shown in the last frame, by place in the snapshot shown, with the cell that held it.
+    private var shownX = FloatArray(0)
+    private var shownY = FloatArray(0)
+    private var shownAngle = FloatArray(0)
+    private var shownUids = IntArray(0)
+    private var shownCount = 0
+
+    // The move in progress: from where each cell was shown when the newest snapshot came to its new place.
+    private var fromX = FloatArray(0)
+    private var fromY = FloatArray(0)
+    private var fromAngle = FloatArray(0)
+    private var fromValid = BooleanArray(0)
+    private var seenSerial = -1L
+    private var seenStep = -1L
+    private var lastPublishedNanos = 0L
+    private var moveStartNanos = 0L
+    private var moveNanos = 0L
+
+    // The cell and bond records of this frame, with the gliding positions written in.
+    private var frameCells = FloatArray(0)
+    private var frameBonds = FloatArray(0)
+
+    /** Cells as shown in the last frame, for [cellNear]; two buffers take turns so a reader never sees a half-written one. */
+    private val hitBuffers = arrayOf(HitFrame(), HitFrame())
+    private var hitTurn = 0
+
+    @Volatile
+    private var hitFrame: HitFrame? = null
+
+    private class HitFrame {
+        var cells = FloatArray(0)
+        var count = 0
+    }
 
     private var dishProgram = 0
     private var foodProgram = 0
@@ -95,24 +135,139 @@ class DishRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        val now = System.nanoTime()
         val snapshot = runner.latestSnapshot()
         camera.setDishRadius(snapshot.dishRadius)
+        takeSnapshot(snapshot, now)
+        val alpha = if (moveNanos <= 0L) 1f else ((now - moveStartNanos).toFloat() / moveNanos).coerceIn(0f, 1f)
+        glide(snapshot, alpha)
+
         val selected = selectedIndex(snapshot, runner.selectedUid)
         if (selected >= 0 && camera.followUid != 0 && camera.followUid == snapshot.cellUids[selected]) {
             val o = selected * WorldSnapshot.CELL_FLOATS
-            camera.centerOn(snapshot.cells[o], snapshot.cells[o + 1])
+            camera.centerOn(frameCells[o], frameCells[o + 1])
         }
+        val cameraMoving = camera.advance(now)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
-        if (!camera.viewProjection(viewProjection)) return
-        val pixelsPerUnit = camera.pixelsPerUnit()
+        if (camera.viewProjection(viewProjection)) {
+            val pixelsPerUnit = camera.pixelsPerUnit()
+            drawDish(snapshot)
+            GLES30.glEnable(GLES30.GL_BLEND)
+            drawFood(snapshot, pixelsPerUnit)
+            drawBonds(snapshot, pixelsPerUnit)
+            drawCells(snapshot, pixelsPerUnit, selected)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            GLES30.glBindVertexArray(0)
+        }
+        if (alpha < 1f || cameraMoving) requestFrame()
+    }
 
-        drawDish(snapshot)
-        GLES30.glEnable(GLES30.GL_BLEND)
-        drawFood(snapshot, pixelsPerUnit)
-        drawBonds(snapshot, pixelsPerUnit)
-        drawCells(snapshot, pixelsPerUnit, selected)
-        GLES30.glDisable(GLES30.GL_BLEND)
-        GLES30.glBindVertexArray(0)
+    /**
+     * True when a cell, as shown in the last frame, lies within [slack] µm of the world point ([x], [y]).
+     * Safe to call from any thread.
+     */
+    fun cellNear(x: Float, y: Float, slack: Float): Boolean {
+        val frame = hitFrame ?: return false
+        val cells = frame.cells
+        for (i in 0 until frame.count) {
+            val o = i * HIT_FLOATS
+            if (hypot(cells[o] - x, cells[o + 1] - y) - cells[o + 2] < slack) return true
+        }
+        return false
+    }
+
+    /** A new snapshot starts a new glide: from where each cell is shown now to where the world put it. */
+    private fun takeSnapshot(snapshot: WorldSnapshot, now: Long) {
+        if (snapshot.serial == seenSerial) return
+        // Only a real step glides; a command (a tweezers move, a fresh cell) and a long pause jump at once.
+        val stepped = seenSerial >= 0 && snapshot.stepCount != seenStep
+        val interval = snapshot.publishedNanos - lastPublishedNanos
+        val glides = stepped && interval in 1..MAX_GLIDE_NANOS
+        seenSerial = snapshot.serial
+        seenStep = snapshot.stepCount
+        lastPublishedNanos = snapshot.publishedNanos
+
+        val n = snapshot.cellCount
+        if (fromValid.size < n) {
+            val size = n + n / 2 + 16
+            fromX = FloatArray(size)
+            fromY = FloatArray(size)
+            fromAngle = FloatArray(size)
+            fromValid = BooleanArray(size)
+        }
+        for (i in 0 until n) {
+            val same = glides && i < shownCount && shownUids[i] == snapshot.cellUids[i]
+            fromValid[i] = same
+            if (same) {
+                fromX[i] = shownX[i]
+                fromY[i] = shownY[i]
+                fromAngle[i] = shownAngle[i]
+            }
+        }
+        moveStartNanos = now
+        moveNanos = if (glides) interval else 0L
+    }
+
+    /** Writes this frame's cell and bond records: positions part of the way ([alpha]) along the glide. */
+    private fun glide(snapshot: WorldSnapshot, alpha: Float) {
+        val n = snapshot.cellCount
+        val floats = n * WorldSnapshot.CELL_FLOATS
+        if (frameCells.size < floats) frameCells = FloatArray(floats + floats / 2 + WorldSnapshot.CELL_FLOATS * 16)
+        System.arraycopy(snapshot.cells, 0, frameCells, 0, floats)
+        if (shownUids.size < n) {
+            val size = n + n / 2 + 16
+            shownX = FloatArray(size)
+            shownY = FloatArray(size)
+            shownAngle = FloatArray(size)
+            shownUids = IntArray(size)
+        }
+        val hit = hitBuffers[hitTurn]
+        if (hit.cells.size < n * HIT_FLOATS) hit.cells = FloatArray((n + n / 2 + 16) * HIT_FLOATS)
+        for (i in 0 until n) {
+            val o = i * WorldSnapshot.CELL_FLOATS
+            if (alpha < 1f && i < fromValid.size && fromValid[i]) {
+                frameCells[o] = fromX[i] + (frameCells[o] - fromX[i]) * alpha
+                frameCells[o + 1] = fromY[i] + (frameCells[o + 1] - fromY[i]) * alpha
+                frameCells[o + 3] = fromAngle[i] + shortestTurn(fromAngle[i], frameCells[o + 3]) * alpha
+            }
+            shownX[i] = frameCells[o]
+            shownY[i] = frameCells[o + 1]
+            shownAngle[i] = frameCells[o + 3]
+            shownUids[i] = snapshot.cellUids[i]
+            hit.cells[i * HIT_FLOATS] = frameCells[o]
+            hit.cells[i * HIT_FLOATS + 1] = frameCells[o + 1]
+            hit.cells[i * HIT_FLOATS + 2] = frameCells[o + 2]
+        }
+        shownCount = n
+        hit.count = n
+        hitFrame = hit
+        hitTurn = 1 - hitTurn
+
+        // Bonds follow their cells; a bond to the wall keeps its wall end.
+        val bondFloats = snapshot.bondCount * WorldSnapshot.BOND_FLOATS
+        if (frameBonds.size < bondFloats) frameBonds = FloatArray(bondFloats + bondFloats / 2 + WorldSnapshot.BOND_FLOATS * 16)
+        System.arraycopy(snapshot.bonds, 0, frameBonds, 0, bondFloats)
+        for (k in 0 until snapshot.bondCount) {
+            val o = k * WorldSnapshot.BOND_FLOATS
+            val a = snapshot.bondEnds[2 * k]
+            val b = snapshot.bondEnds[2 * k + 1]
+            if (a in 0 until n) {
+                frameBonds[o] = frameCells[a * WorldSnapshot.CELL_FLOATS]
+                frameBonds[o + 1] = frameCells[a * WorldSnapshot.CELL_FLOATS + 1]
+            }
+            if (b in 0 until n) {
+                frameBonds[o + 2] = frameCells[b * WorldSnapshot.CELL_FLOATS]
+                frameBonds[o + 3] = frameCells[b * WorldSnapshot.CELL_FLOATS + 1]
+            }
+        }
+    }
+
+    /** The turn from angle [from] to angle [to] the short way round, radians. */
+    private fun shortestTurn(from: Float, to: Float): Float {
+        var turn = (to - from) % TWO_PI
+        if (turn > PI_F) turn -= TWO_PI
+        if (turn < -PI_F) turn += TWO_PI
+        return turn
     }
 
     private fun drawDish(snapshot: WorldSnapshot) {
@@ -142,7 +297,7 @@ class DishRenderer(
     private fun drawBonds(snapshot: WorldSnapshot, pixelsPerUnit: Float) {
         val count = snapshot.bondCount
         if (count == 0) return
-        bondData = upload(bondBuffer, bondData, snapshot.bonds, count * WorldSnapshot.BOND_FLOATS)
+        bondData = upload(bondBuffer, bondData, frameBonds, count * WorldSnapshot.BOND_FLOATS)
         GLES30.glUseProgram(bondProgram)
         GLES30.glUniformMatrix3fv(uniform(bondProgram, "uViewProjection"), 1, false, viewProjection, 0)
         GLES30.glUniform1f(uniform(bondProgram, "uPixelsPerUnit"), pixelsPerUnit)
@@ -156,10 +311,10 @@ class DishRenderer(
         val floats = count * WorldSnapshot.CELL_FLOATS
         cellData = ensure(cellData, floats)
         cellData.clear()
-        cellData.put(snapshot.cells, 0, floats)
+        cellData.put(frameCells, 0, floats)
         if (selected >= 0) {
             val flagsAt = selected * WorldSnapshot.CELL_FLOATS + FLAGS_OFFSET
-            cellData.put(flagsAt, snapshot.cells[flagsAt] + SELECTED_FLAG)
+            cellData.put(flagsAt, frameCells[flagsAt] + SELECTED_FLAG)
         }
         cellData.flip()
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, cellBuffer)
@@ -221,6 +376,15 @@ class DishRenderer(
         /** Index of the flags inside a cell record, and the bit that marks the cell under diagnostics. */
         const val FLAGS_OFFSET = 10
         const val SELECTED_FLAG = 256f
+
+        /** A glide never takes longer than this; after a longer pause the cells jump to their places. */
+        const val MAX_GLIDE_NANOS = 400_000_000L
+
+        /** x, y and radius of each cell for [cellNear]. */
+        const val HIT_FLOATS = 3
+
+        const val PI_F = 3.1415927f
+        const val TWO_PI = 6.2831855f
 
         /** Colour around the dish, RGB 0..1; also the clear colour, so the dish quad has no visible edge. */
         val BACKGROUND = floatArrayOf(0.016f, 0.024f, 0.031f)

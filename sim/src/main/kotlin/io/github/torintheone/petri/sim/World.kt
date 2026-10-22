@@ -537,6 +537,7 @@ class World(
 
     /** Copies what the renderer and UI need into [out]. */
     fun writeSnapshot(out: WorldSnapshot) {
+        out.stepCount = stepCount
         out.ageHours = ageHours
         out.dishRadius = dishRadius
         out.cellCount = cells.count
@@ -575,12 +576,15 @@ class World(
             val o = n * WorldSnapshot.BOND_FLOATS
             b[o] = cells.x[i]
             b[o + 1] = cells.y[i]
+            out.bondEnds[2 * n] = i
             if (j == Bonds.WALL) {
                 b[o + 2] = dishRadius * cos(bonds.anchorB[id])
                 b[o + 3] = dishRadius * sin(bonds.anchorB[id])
+                out.bondEnds[2 * n + 1] = -1
             } else {
                 b[o + 2] = cells.x[j]
                 b[o + 3] = cells.y[j]
+                out.bondEnds[2 * n + 1] = j
             }
             b[o + 4] = bonds.kind[id].toFloat()
             n++

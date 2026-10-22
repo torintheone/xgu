@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -91,7 +92,14 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     var graphShown by mutableStateOf(false)
         private set
 
+    /** The choice of speeds above the dock is open. */
+    var choosingSpeed by mutableStateOf(false)
+
     var timeMode by mutableStateOf(TimeMode.OBSERVE)
+        private set
+
+    /** How many times faster than real «Наблюдение» time runs; below 1 is slow motion. */
+    var speed by mutableDoubleStateOf(1.0)
         private set
 
     var tool by mutableStateOf(Tool.SYNTHESIZER)
@@ -105,7 +113,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     val stats: Flow<SimStats>
 
     /** Game hours per real second, measured every half second while someone collects it. */
-    val speed: Flow<Double> = flow {
+    val pace: Flow<Double> = flow {
         var lastAge = runner.stats.ageHours
         var lastTime = System.nanoTime()
         while (true) {
@@ -197,6 +205,30 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         runner.timeMode = mode
     }
 
+    /** «Наблюдение» at [value] times its normal pace; also lets time run if it stood still. */
+    fun selectSpeed(value: Double) {
+        speed = value
+        runner.speed = value
+        selectTimeMode(TimeMode.OBSERVE)
+    }
+
+    // ---- Camera buttons ----
+
+    fun zoomIn() {
+        onCameraMoved()
+        camera.zoomBy(ZOOM_STEP)
+    }
+
+    fun zoomOut() {
+        onCameraMoved()
+        camera.zoomBy(1f / ZOOM_STEP)
+    }
+
+    fun showWholeDish() {
+        onCameraMoved()
+        camera.showWholeDish()
+    }
+
     fun selectTool(newTool: Tool) {
         tool = newTool
     }
@@ -207,17 +239,22 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     /**
      * Opens what a launch [intent] asks for, once the last dish is back: [EXTRA_TAB] (a [Tab] name),
-     * [EXTRA_PRESET] (a [Preset] name, put into the editor) and [EXTRA_INSPECT] (diagnostics on the cell nearest
-     * the middle of the dish, with the graph). The screenshot script (scripts/screenshots.sh) uses them.
+     * [EXTRA_PRESET] (a [Preset] name, put into the editor), [EXTRA_INSPECT] (diagnostics on the cell nearest
+     * the middle of the dish, with the graph), [EXTRA_SPEED] (a speed of «Наблюдение») and [EXTRA_SPEEDS]
+     * (the choice of speeds open). The screenshot script (scripts/screenshots.sh) uses them.
      */
     fun handleLaunch(intent: Intent?) {
         val extras = intent?.extras ?: return
         val requestedTab = extras.getString(EXTRA_TAB)?.let { name -> Tab.entries.firstOrNull { it.name.equals(name, ignoreCase = true) } }
         val preset = extras.getString(EXTRA_PRESET)?.let { name -> Preset.entries.firstOrNull { it.name.equals(name, ignoreCase = true) } }
         val inspect = extras.getBoolean(EXTRA_INSPECT, false)
+        val requestedSpeed = extras.getFloat(EXTRA_SPEED, 0f)
+        val speeds = extras.getBoolean(EXTRA_SPEEDS, false)
         viewModelScope.launch {
             restoreDone.await()
             requestedTab?.let { tab = it }
+            if (requestedSpeed > 0f) selectSpeed(requestedSpeed.toDouble())
+            choosingSpeed = speeds
             preset?.let { editor.load(it.genome(getApplication<Application>().getString(it.title))) }
             if (inspect) {
                 tool = Tool.DIAGNOSTICS
@@ -248,6 +285,14 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     }
 
     // ---- Gestures on the dish ----
+
+    override val dragsCells: Boolean
+        get() = tool == Tool.TWEEZERS
+
+    override fun onCameraMoved() {
+        following = false
+        camera.followUid = 0
+    }
 
     override fun onTap(x: Float, y: Float, slack: Float) {
         when (tool) {
@@ -477,6 +522,11 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         const val EXTRA_TAB = "petri.tab"
         const val EXTRA_PRESET = "petri.preset"
         const val EXTRA_INSPECT = "petri.inspect"
+        const val EXTRA_SPEED = "petri.speed"
+        const val EXTRA_SPEEDS = "petri.speeds"
+
+        /** One press of «+» or «−» zooms by this much. */
+        private const val ZOOM_STEP = 1.6f
 
         private const val STATS_REFRESH_MS = 100L
         private const val HISTORY_REFRESH_MS = 500L

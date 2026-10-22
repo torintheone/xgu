@@ -20,6 +20,10 @@ object SimConfig {
     /** «Наблюдение»: game hours that pass per real second. */
     const val OBSERVE_HOURS_PER_SECOND: Double = 1.0
 
+    /** Slowest and fastest «Наблюдение»: 1/8 and 4 times [OBSERVE_HOURS_PER_SECOND]. */
+    const val MIN_TIME_SPEED: Double = 0.125
+    const val MAX_TIME_SPEED: Double = 4.0
+
     /** How many times per real second a running simulation hands a fresh snapshot to the renderer and UI. */
     const val PUBLISH_RATE_HZ: Int = 60
 

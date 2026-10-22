@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -43,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -53,6 +56,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
@@ -92,19 +98,35 @@ import kotlin.math.roundToInt
 @Composable
 fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     val stats by viewModel.stats.collectAsStateWithLifecycle(initialValue = SimStats.EMPTY)
-    val speed by viewModel.speed.collectAsStateWithLifecycle(initialValue = 0.0)
+    val pace by viewModel.pace.collectAsStateWithLifecycle(initialValue = 0.0)
     // The caption over the dock tells what the last tap on the dock chose, then fades away.
     var caption by remember { mutableStateOf(CaptionSubject.TOOL) }
     var captionStamp by remember { mutableIntStateOf(0) }
     val selectTool: (Tool) -> Unit = { tool ->
         viewModel.selectTool(tool)
+        viewModel.choosingSpeed = false
         caption = CaptionSubject.TOOL
         captionStamp++
     }
     val selectTime: (TimeMode) -> Unit = { mode ->
         viewModel.selectTimeMode(mode)
+        viewModel.choosingSpeed = false
         caption = CaptionSubject.TIME
         captionStamp++
+    }
+    val selectSpeed: (Double) -> Unit = { value ->
+        viewModel.selectSpeed(value)
+        viewModel.choosingSpeed = false
+        caption = CaptionSubject.TIME
+        captionStamp++
+    }
+    val cameraControls: @Composable (Modifier) -> Unit = { controlsModifier ->
+        CameraControls(
+            onZoomOut = viewModel::zoomOut,
+            onZoomIn = viewModel::zoomIn,
+            onWholeDish = viewModel::showWholeDish,
+            modifier = controlsModifier,
+        )
     }
 
     Box(modifier) {
@@ -135,7 +157,8 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
             Readings(
                 stats = stats,
                 timeMode = viewModel.timeMode,
-                speed = speed,
+                speed = viewModel.speed,
+                pace = pace,
                 graphShown = viewModel.graphShown,
                 history = viewModel.history,
                 onToggleGraph = viewModel::toggleGraph,
@@ -150,6 +173,7 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                         .widthIn(max = sidePanel),
                 )
                 CameraScaleBar(viewModel.camera, Modifier.align(Alignment.BottomStart))
+                cameraControls(Modifier.align(Alignment.BottomEnd))
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -159,15 +183,37 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                     .widthIn(max = DOCK_COLUMN_MAX),
             ) {
                 if (!wide) {
-                    CameraScaleBar(viewModel.camera, Modifier.align(Alignment.Start))
+                    Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
+                        CameraScaleBar(viewModel.camera)
+                        Spacer(Modifier.weight(1f))
+                        cameraControls(Modifier)
+                    }
                     card(Modifier.fillMaxWidth())
                 }
-                Caption(subject = caption, stamp = captionStamp, tool = viewModel.tool, timeMode = viewModel.timeMode)
+                Caption(
+                    subject = caption,
+                    stamp = captionStamp,
+                    tool = viewModel.tool,
+                    timeMode = viewModel.timeMode,
+                    speed = viewModel.speed,
+                )
+                if (viewModel.choosingSpeed) {
+                    SpeedPicker(
+                        timeMode = viewModel.timeMode,
+                        speed = viewModel.speed,
+                        onSpeed = selectSpeed,
+                        onIncubate = { selectTime(TimeMode.INCUBATE) },
+                        button = dockButton,
+                    )
+                }
                 Dock(
                     tool = viewModel.tool,
                     onTool = selectTool,
                     timeMode = viewModel.timeMode,
+                    speed = viewModel.speed,
                     onTimeMode = selectTime,
+                    choosingSpeed = viewModel.choosingSpeed,
+                    onChooseSpeed = { viewModel.choosingSpeed = !viewModel.choosingSpeed },
                     button = dockButton,
                 )
             }
@@ -204,6 +250,7 @@ private fun Readings(
     stats: SimStats,
     timeMode: TimeMode,
     speed: Double,
+    pace: Double,
     graphShown: Boolean,
     history: Flow<List<PopulationHistory.Sample>>,
     onToggleGraph: () -> Unit,
@@ -216,10 +263,11 @@ private fun Readings(
         modifier = modifier.animateContentSize(),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            val (ageLabel, ageColor) = when (timeMode) {
-                TimeMode.FREEZE -> stringResource(R.string.hud_paused) to Lab.Amber
-                TimeMode.OBSERVE -> stringResource(R.string.stat_age) to Lab.TextDim
-                TimeMode.INCUBATE -> stringResource(R.string.hud_fast, speedText(speed)) to Lab.Accent
+            val (ageLabel, ageColor) = when {
+                timeMode == TimeMode.FREEZE -> stringResource(R.string.hud_paused) to Lab.Amber
+                timeMode == TimeMode.INCUBATE -> stringResource(R.string.hud_fast, measuredTimes(pace)) to Lab.Accent
+                speed == 1.0 -> stringResource(R.string.stat_age) to Lab.TextDim
+                else -> stringResource(R.string.hud_fast, speedLabel(speed)) to Lab.Accent
             }
             Readout(ageLabel, stringResource(R.string.hours_value, formatNumber(stats.ageHours, 1)), labelColor = ageColor)
             Readout(stringResource(R.string.stat_cells), stats.cellCount.toString(), dot = Lab.Accent)
@@ -247,18 +295,29 @@ private fun Readings(
     }
 }
 
-/** «×7»: how many times faster than observation the dish runs. */
-private fun speedText(hoursPerSecond: Double): String {
+/** «7»: how many times faster than normal observation the dish runs, from the measured [hoursPerSecond]. */
+private fun measuredTimes(hoursPerSecond: Double): String {
     val times = hoursPerSecond / SimConfig.OBSERVE_HOURS_PER_SECOND
     return formatNumber(times, if (times < SPEED_DECIMALS_BELOW) 1 else 0)
 }
+
+/** «¼», «1», «4»: a chosen speed, with vulgar fractions for slow motion. */
+private fun speedLabel(speed: Double): String = when (speed) {
+    0.125 -> "⅛"
+    0.25 -> "¼"
+    0.5 -> "½"
+    else -> formatNumber(speed, 0)
+}
+
+/** Speeds offered for «Наблюдение»: slow motion, normal and faster. */
+private val SPEEDS = listOf(0.125, 0.25, 0.5, 1.0, 2.0, 4.0)
 
 /** What the caption over the dock talks about. */
 private enum class CaptionSubject { TOOL, TIME }
 
 /** The name and a one-line hint of the tool or time mode just chosen; fades after a few seconds. */
 @Composable
-private fun Caption(subject: CaptionSubject, stamp: Int, tool: Tool, timeMode: TimeMode) {
+private fun Caption(subject: CaptionSubject, stamp: Int, tool: Tool, timeMode: TimeMode, speed: Double) {
     var visible by remember { mutableStateOf(true) }
     LaunchedEffect(stamp) {
         visible = true
@@ -267,7 +326,13 @@ private fun Caption(subject: CaptionSubject, stamp: Int, tool: Tool, timeMode: T
     }
     val (name, hint) = when (subject) {
         CaptionSubject.TOOL -> stringResource(tool.label) to stringResource(tool.hint)
-        CaptionSubject.TIME -> stringResource(timeMode.label) to stringResource(timeMode.hint)
+        CaptionSubject.TIME -> when {
+            timeMode != TimeMode.OBSERVE -> stringResource(timeMode.label) to stringResource(timeMode.hint)
+            speed <= 1.0 -> stringResource(R.string.time_observe_speed, speedLabel(speed)) to
+                stringResource(R.string.hint_speed_slow, (1.0 / speed).roundToInt())
+            else -> stringResource(R.string.time_observe_speed, speedLabel(speed)) to
+                stringResource(R.string.hint_speed_fast, speed.roundToInt())
+        }
     }
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
         Text(
@@ -289,9 +354,18 @@ private fun Caption(subject: CaptionSubject, stamp: Int, tool: Tool, timeMode: T
     }
 }
 
-/** The five tools, then time: run or stop, and incubation. */
+/** The five tools, then time: run or stop, and the speed, which opens the choice of speeds. */
 @Composable
-private fun Dock(tool: Tool, onTool: (Tool) -> Unit, timeMode: TimeMode, onTimeMode: (TimeMode) -> Unit, button: Dp) {
+private fun Dock(
+    tool: Tool,
+    onTool: (Tool) -> Unit,
+    timeMode: TimeMode,
+    speed: Double,
+    onTimeMode: (TimeMode) -> Unit,
+    choosingSpeed: Boolean,
+    onChooseSpeed: () -> Unit,
+    button: Dp,
+) {
     Panel(glass = true, shape = RoundedCornerShape(DOCK_RADIUS), contentPadding = PaddingValues(DOCK_PADDING)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             for (item in Tool.entries) {
@@ -317,14 +391,88 @@ private fun Dock(tool: Tool, onTool: (Tool) -> Unit, timeMode: TimeMode, onTimeM
                 tint = if (running) Lab.Text else Lab.Amber,
                 size = button,
             )
+            val speedName = if (timeMode == TimeMode.INCUBATE) stringResource(R.string.time_incubate) else "×" + speedLabel(speed)
+            SpeedButton(
+                text = if (timeMode == TimeMode.INCUBATE) null else "×" + speedLabel(speed),
+                contentDescription = stringResource(R.string.speed_button, speedName),
+                active = choosingSpeed || timeMode == TimeMode.INCUBATE,
+                onClick = onChooseSpeed,
+                size = button,
+            )
+        }
+    }
+}
+
+/** The speed of time on a round button: «×¼» and so on, or the fast-forward sign during incubation. */
+@Composable
+private fun SpeedButton(text: String?, contentDescription: String, active: Boolean, onClick: () -> Unit, size: Dp) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(if (active) Lab.AccentSoft else Color.Transparent)
+            .border(1.dp, if (active) Lab.Accent.copy(alpha = ACTIVE_EDGE) else Lab.HairlineStrong, CircleShape)
+            .semantics { this.contentDescription = contentDescription }
+            .clickable(role = Role.Button, onClick = onClick),
+    ) {
+        if (text != null) {
+            Text(text, style = LabType.ReadingSmall, color = if (active) Lab.Accent else Lab.Text, maxLines = 1)
+        } else {
+            Icon(painterResource(R.drawable.ic_fast_forward), contentDescription = null, tint = Lab.Accent, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/** The choice of speeds above the dock: slow motion, normal, faster and incubation. */
+@Composable
+private fun SpeedPicker(timeMode: TimeMode, speed: Double, onSpeed: (Double) -> Unit, onIncubate: () -> Unit, button: Dp) {
+    Panel(glass = true, shape = RoundedCornerShape(DOCK_RADIUS), contentPadding = PaddingValues(DOCK_PADDING)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            for (option in SPEEDS) {
+                val chosen = timeMode == TimeMode.OBSERVE && option == speed
+                SpeedOption(
+                    text = "×" + speedLabel(option),
+                    chosen = chosen,
+                    onClick = { onSpeed(option) },
+                    size = button,
+                )
+            }
             LabIconButton(
                 icon = R.drawable.ic_fast_forward,
                 contentDescription = stringResource(R.string.time_incubate),
-                onClick = { onTimeMode(if (timeMode == TimeMode.INCUBATE) TimeMode.OBSERVE else TimeMode.INCUBATE) },
+                onClick = onIncubate,
                 active = timeMode == TimeMode.INCUBATE,
                 tint = Lab.Text,
                 size = button,
             )
+        }
+    }
+}
+
+@Composable
+private fun SpeedOption(text: String, chosen: Boolean, onClick: () -> Unit, size: Dp) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(if (chosen) Lab.AccentSoft else Color.Transparent)
+            .border(1.dp, if (chosen) Lab.Accent.copy(alpha = ACTIVE_EDGE) else Color.Transparent, CircleShape)
+            .selectable(selected = chosen, role = Role.RadioButton, onClick = onClick),
+    ) {
+        Text(text, style = LabType.ReadingSmall, color = if (chosen) Lab.Accent else Lab.Text, maxLines = 1)
+    }
+}
+
+/** «−», «+» and «вся чашка»: the camera without gestures. */
+@Composable
+private fun CameraControls(onZoomOut: () -> Unit, onZoomIn: () -> Unit, onWholeDish: () -> Unit, modifier: Modifier = Modifier) {
+    Panel(glass = true, shape = RoundedCornerShape(CAMERA_RADIUS), contentPadding = PaddingValues(2.dp), modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LabIconButton(R.drawable.ic_minus, stringResource(R.string.zoom_out), onZoomOut, tint = Lab.Text, size = CAMERA_BUTTON, iconSize = 18.dp)
+            LabIconButton(R.drawable.ic_plus, stringResource(R.string.zoom_in), onZoomIn, tint = Lab.Text, size = CAMERA_BUTTON, iconSize = 18.dp)
+            LabIconButton(R.drawable.ic_fit, stringResource(R.string.whole_dish), onWholeDish, tint = Lab.Text, size = CAMERA_BUTTON, iconSize = 20.dp)
         }
     }
 }
@@ -555,6 +703,9 @@ private val DOCK_EXTRA = DIVIDER_PADDING * 2 + 1.dp + DOCK_PADDING * 2 + 2.dp
 private val DOCK_RADIUS = 26.dp
 
 private const val CAPTION_MS = 4500L
+private const val ACTIVE_EDGE = 0.6f
+private val CAMERA_BUTTON = 40.dp
+private val CAMERA_RADIUS = 22.dp
 private const val SPEED_DECIMALS_BELOW = 10.0
 private const val SWATCH_FILL = 0.35f
 private val SIGNAL_TEXT_WIDTH = 40.dp

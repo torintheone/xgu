@@ -14,6 +14,28 @@ class WorldTest {
     }
 
     @Test
+    fun `a snapshot names the two cells of every bond`() {
+        val world = TestGenomes.quietWorld().apply { previewGrowth = SimConfig.PREVIEW_GROWTH_PER_HOUR }
+        world.addCell(Preset.CHAIN.genome("chain"), 0f, 0f)
+        repeat((6.0 / SimConfig.STEP_HOURS).toInt()) { world.step() }
+        val snapshot = WorldSnapshot()
+        world.writeSnapshot(snapshot)
+        assertTrue(snapshot.bondCount > 2, "the chain should have bonds, has ${snapshot.bondCount}")
+        assertEquals(world.stepCount, snapshot.stepCount)
+        for (k in 0 until snapshot.bondCount) {
+            val a = snapshot.bondEnds[2 * k]
+            val b = snapshot.bondEnds[2 * k + 1]
+            val o = k * WorldSnapshot.BOND_FLOATS
+            assertEquals(snapshot.cells[a * WorldSnapshot.CELL_FLOATS], snapshot.bonds[o])
+            assertEquals(snapshot.cells[a * WorldSnapshot.CELL_FLOATS + 1], snapshot.bonds[o + 1])
+            if (b >= 0) {
+                assertEquals(snapshot.cells[b * WorldSnapshot.CELL_FLOATS], snapshot.bonds[o + 2])
+                assertEquals(snapshot.cells[b * WorldSnapshot.CELL_FLOATS + 1], snapshot.bonds[o + 3])
+            }
+        }
+    }
+
+    @Test
     fun `settings outside their range are pulled back in`() {
         val world = World(SubstrateSettings(dishDiameterMm = 5f, maxCells = 9_999, viscosity = -3f))
         assertEquals(3f, world.settings.dishDiameterMm)

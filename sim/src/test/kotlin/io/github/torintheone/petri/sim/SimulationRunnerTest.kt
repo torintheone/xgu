@@ -33,6 +33,31 @@ class SimulationRunnerTest {
     }
 
     @Test
+    fun `slow motion runs slower than observation`() {
+        SimulationRunner(World()).use { runner ->
+            runner.timeMode = TimeMode.OBSERVE
+            runner.speed = 0.25
+            val startNanos = System.nanoTime()
+            runner.start()
+            Thread.sleep(600)
+            val age = runner.stats.ageHours
+            val realHours = (System.nanoTime() - startNanos) / 1e9 * SimConfig.OBSERVE_HOURS_PER_SECOND
+            assertTrue(age > 0.0, "the world should age")
+            assertTrue(age <= 0.25 * realHours + SimConfig.STEP_HOURS, "age $age h ran ahead of a quarter of real time $realHours h")
+        }
+    }
+
+    @Test
+    fun `speed stays within its limits`() {
+        SimulationRunner(World()).use { runner ->
+            runner.speed = 0.0
+            assertEquals(SimConfig.MIN_TIME_SPEED, runner.speed)
+            runner.speed = 100.0
+            assertEquals(SimConfig.MAX_TIME_SPEED, runner.speed)
+        }
+    }
+
+    @Test
     fun `incubation runs faster than observation`() {
         SimulationRunner(World()).use { runner ->
             runner.timeMode = TimeMode.INCUBATE

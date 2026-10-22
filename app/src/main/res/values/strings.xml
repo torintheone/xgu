@@ -24,6 +24,13 @@
     <string name="time_freeze">Заморозка</string>
     <string name="time_observe">Наблюдение</string>
     <string name="time_incubate">Инкубация</string>
+    <string name="time_observe_speed">Наблюдение ×%1$s</string>
+    <string name="speed_button">Скорость времени: %1$s</string>
+    <string name="hint_speed_slow">1 игровой час за %1$d с</string>
+    <string name="hint_speed_fast">%1$d игровых часа за 1 с</string>
+    <string name="zoom_in">Приблизить</string>
+    <string name="zoom_out">Отдалить</string>
+    <string name="whole_dish">Вся чашка</string>
     <string name="hint_freeze">время остановлено, клетки можно переносить пинцетом</string>
     <string name="hint_observe">час жизни чашки за секунду</string>
     <string name="hint_incubate">время идёт так быстро, как может телефон</string>

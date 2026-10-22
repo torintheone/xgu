@@ -49,31 +49,34 @@ sleep 40 # the starting dish grows for 40 game hours
 clean_status_bar # by now the system interface is surely up
 
 open_app --es petri.tab microscope
-shoot 1-microscope 3
+shoot 01-microscope 3
 
-open_app --ez petri.inspect true
-shoot 2-microscope-cell 4
+open_app --es petri.tab microscope --ez petri.speeds true --ef petri.speed 0.25
+shoot 02-microscope-speeds 3
+
+open_app --ez petri.inspect true --ef petri.speed 1.0
+shoot 03-microscope-cell 4
 
 open_app --es petri.tab genome --es petri.preset SMART_SWIMMER
-shoot 3-genome 6
+shoot 04-genome 6
 swipe_up
-shoot 4-genome-parameters 2
+shoot 05-genome-parameters 2
 
 open_app --es petri.tab environment
-shoot 5-environment 2
+shoot 06-environment 2
 swipe_up
-shoot 6-environment-parameters 2
+shoot 07-environment-parameters 2
 
 open_app --es petri.tab genbank
-shoot 7-genbank 3
+shoot 08-genbank 3
 
 # Landscape: the tabs move to the side.
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
 open_app --es petri.tab microscope
-shoot 8-microscope-landscape 4
+shoot 09-microscope-landscape 4
 open_app --es petri.tab genome
-shoot 9-genome-landscape 3
+shoot 10-genome-landscape 3
 adb shell settings put system user_rotation 0
 
 demo exit
