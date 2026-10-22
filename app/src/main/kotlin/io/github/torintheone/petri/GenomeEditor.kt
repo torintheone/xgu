@@ -80,6 +80,26 @@ class GenomeEditor(scope: CoroutineScope) {
         genomeState.update { it.copy(initialMode = index) }
     }
 
+    /**
+     * The simple editor's «Новая клетка»: child [child] (1 or 2) of the edited mode becomes a new kind of cell in
+     * the lowest mode the organism does not use. The new kind has the parent's type, a colour of its own and does
+     * not divide. Returns false when the organism already uses every mode.
+     */
+    fun newChildKind(child: Int): Boolean {
+        val index = editedMode
+        var added = false
+        genomeState.update { genome ->
+            val free = genome.freeMode()
+            added = free >= 0
+            if (free < 0) return@update genome
+            val parent = genome.modes[index]
+            val kind = Mode.default(free).copy(cellType = parent.cellType, splitMass = Mode.SPLIT_NEVER)
+            val linked = if (child == 1) parent.copy(child1Mode = free) else parent.copy(child2Mode = free)
+            genome.withMode(free, kind).withMode(index, linked)
+        }
+        return added
+    }
+
     fun rename(name: String) {
         genomeState.update { it.copy(name = name) }
     }

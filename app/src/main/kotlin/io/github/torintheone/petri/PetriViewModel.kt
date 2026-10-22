@@ -103,6 +103,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     var musicVolume by mutableFloatStateOf(music.volume)
         private set
 
+    /** The genome editor shows its simple view (true) or every parameter (false). */
+    var simpleEditor by mutableStateOf(preferences.getBoolean(KEY_SIMPLE_EDITOR, true))
+        private set
+
     /** The tab on screen; kept here so that it survives rotation and a launch request can switch it. */
     var tab by mutableStateOf(Tab.MICROSCOPE)
 
@@ -258,8 +262,9 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     /**
      * Opens what a launch [intent] asks for, once the last dish is back: [EXTRA_TAB] (a [Tab] name),
      * [EXTRA_PRESET] (a [Preset] name, put into the editor), [EXTRA_INSPECT] (diagnostics on the cell nearest
-     * the middle of the dish, with the graph), [EXTRA_SPEED] (a speed of «Наблюдение») and [EXTRA_SPEEDS]
-     * (the choice of speeds open). The screenshot script (scripts/screenshots.sh) uses them.
+     * the middle of the dish, with the graph), [EXTRA_SPEED] (a speed of «Наблюдение»), [EXTRA_SPEEDS]
+     * (the choice of speeds open) and [EXTRA_EDITOR] («simple» or «full» genome editor, for this run only).
+     * The screenshot script (scripts/screenshots.sh) uses them.
      */
     fun handleLaunch(intent: Intent?) {
         val extras = intent?.extras ?: return
@@ -268,11 +273,16 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         val inspect = extras.getBoolean(EXTRA_INSPECT, false)
         val requestedSpeed = extras.getFloat(EXTRA_SPEED, 0f)
         val speeds = extras.getBoolean(EXTRA_SPEEDS, false)
+        val look = extras.getString(EXTRA_EDITOR)
         viewModelScope.launch {
             restoreDone.await()
             requestedTab?.let { tab = it }
             if (requestedSpeed > 0f) selectSpeed(requestedSpeed.toDouble())
             choosingSpeed = speeds
+            when (look) {
+                EDITOR_SIMPLE -> simpleEditor = true
+                EDITOR_FULL -> simpleEditor = false
+            }
             preset?.let { editor.load(it.genome(getApplication<Application>().getString(it.title))) }
             if (inspect) {
                 tool = Tool.DIAGNOSTICS
@@ -302,6 +312,16 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         musicVolume = value
         music.volume = value
         preferences.edit().putFloat(KEY_MUSIC_VOLUME, value).apply()
+    }
+
+    fun changeEditorLook(simple: Boolean) {
+        simpleEditor = simple
+        preferences.edit().putBoolean(KEY_SIMPLE_EDITOR, simple).apply()
+    }
+
+    /** The simple editor's «Новый вид клетки» for child [child] (1 or 2) of the edited mode. */
+    fun newChildKind(child: Int) {
+        if (!editor.newChildKind(child)) say(R.string.msg_no_free_mode)
     }
 
     private fun autosave() {
@@ -556,10 +576,14 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         const val EXTRA_INSPECT = "petri.inspect"
         const val EXTRA_SPEED = "petri.speed"
         const val EXTRA_SPEEDS = "petri.speeds"
+        const val EXTRA_EDITOR = "petri.editor"
+        private const val EDITOR_SIMPLE = "simple"
+        private const val EDITOR_FULL = "full"
 
         private const val PREFERENCES = "settings"
         private const val KEY_MUSIC = "music"
         private const val KEY_MUSIC_VOLUME = "music_volume"
+        private const val KEY_SIMPLE_EDITOR = "simple_editor"
 
         /** One press of «+» or «−» zooms by this much. */
         private const val ZOOM_STEP = 1.6f

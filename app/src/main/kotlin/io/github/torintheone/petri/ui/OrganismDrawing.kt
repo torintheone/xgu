@@ -70,7 +70,11 @@ fun DrawScope.drawOrganism(frame: PreviewFrame, scale: Float, highlightMode: Int
     }
 }
 
-private fun DrawScope.drawCell(center: Offset, r: Float, angle: Float, color: Color, type: CellType) {
+/**
+ * One cell of [type] with radius [r] px, its front at [angle] radians (counter-clockwise from the right, as in the
+ * dish), membrane in [color].
+ */
+internal fun DrawScope.drawCell(center: Offset, r: Float, angle: Float, color: Color, type: CellType) {
     // Screen y points down, so the front direction flips its y.
     val fx = cos(angle)
     val fy = -sin(angle)
@@ -145,7 +149,24 @@ private fun DrawScope.drawCell(center: Offset, r: Float, angle: Float, color: Co
     drawCircle(Color.White.copy(alpha = 0.85f), radius = max(1f, 0.1f * r), center = at(0.78f, 0f))
 }
 
-private val BondColor = Color(0x80E0F2F1)
+/**
+ * A small arrowhead just outside the membrane of a cell at [center] with radius [r], pointing where the cell's
+ * front looks ([angle] as in [drawCell]).
+ */
+internal fun DrawScope.drawFrontMark(center: Offset, r: Float, angle: Float, color: Color) {
+    val fx = cos(angle)
+    val fy = -sin(angle)
+    val size = max(3f, 0.32f * r)
+    val tip = Offset(center.x + fx * (r + 1.5f * size), center.y + fy * (r + 1.5f * size))
+    val base = Offset(center.x + fx * (r + 0.4f * size), center.y + fy * (r + 0.4f * size))
+    val side = Offset(-fy * size * 0.75f, fx * size * 0.75f)
+    val stroke = max(1.5f, 0.09f * r)
+    drawLine(color, base + side, tip, strokeWidth = stroke, cap = StrokeCap.Round)
+    drawLine(color, base - side, tip, strokeWidth = stroke, cap = StrokeCap.Round)
+}
+
+/** Bonds between cells, as on the dish. */
+internal val BondColor = Color(0x80E0F2F1)
 private val ThumbnailGrid = Color(0x0FFFFFFF)
 private const val THUMBNAIL_GRID = 6
 private val HighlightColor = Color(0xFFFFFFFF)

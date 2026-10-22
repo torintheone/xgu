@@ -57,26 +57,33 @@ shoot 02-microscope-speeds 3
 open_app --ez petri.inspect true --ef petri.speed 1.0
 shoot 03-microscope-cell 4
 
-open_app --es petri.tab genome --es petri.preset SMART_SWIMMER
+# The simple genome editor: the cell, then the picture of its division.
+open_app --es petri.tab genome --es petri.preset SWIMMER --es petri.editor simple
 shoot 04-genome 6
 swipe_up
-shoot 05-genome-parameters 2
+shoot 05-genome-division 2
+
+# The full editor with every parameter.
+open_app --es petri.tab genome --es petri.preset SMART_SWIMMER --es petri.editor full
+shoot 06-genome-full 6
+swipe_up
+shoot 07-genome-parameters 2
 
 open_app --es petri.tab environment
-shoot 06-environment 2
+shoot 08-environment 2
 swipe_up
-shoot 07-environment-parameters 2
+shoot 09-environment-parameters 2
 
 open_app --es petri.tab genbank
-shoot 08-genbank 3
+shoot 10-genbank 3
 
 # Landscape: the tabs move to the side.
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
 open_app --es petri.tab microscope
-shoot 09-microscope-landscape 4
-open_app --es petri.tab genome
-shoot 10-genome-landscape 3
+shoot 11-microscope-landscape 4
+open_app --es petri.tab genome --es petri.preset SWIMMER --es petri.editor simple
+shoot 12-genome-landscape 4
 adb shell settings put system user_rotation 0
 
 demo exit

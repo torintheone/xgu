@@ -103,9 +103,103 @@
     <string name="genome_imported">Импортированный геном</string>
     <string name="genome_summary">%1$s · режимов: %2$d</string>
     <string name="editor_rename">Переименовать геном</string>
-    <string name="editor_snapping">Привязка</string>
+    <string name="editor_snapping">Привязка значений</string>
+    <string name="editor_snapping_help">Углы меняются шагом 15°, остальные ползунки — 25 ступенями. Выключите, чтобы задавать значения точно.</string>
+    <string name="editor_simple">Простой</string>
+    <string name="editor_full">Полный</string>
     <string name="editor_mode_title">Режим M%1$d</string>
     <string name="editor_initial">Начальный</string>
+
+    <!-- Simple genome editor. -->
+    <string name="simple_kinds_hint">Пока все клетки организма одного вида. Чтобы появился новый, выберите у потомка «+».</string>
+    <string name="simple_kind">Клетка %1$d: %2$s</string>
+    <string name="simple_cell_title">Клетка %1$d</string>
+    <string name="simple_cell_initial">Клетка %1$d · с неё начинается рост</string>
+    <string name="simple_change_type">Сменить тип клетки</string>
+    <string name="simple_color">Цвет</string>
+    <string name="simple_divides">Делится</string>
+    <string name="simple_never_note">Клетка не делится: она так и остаётся одной клеткой.</string>
+    <string name="simple_gamete_note">Гамета не делится: она сливается с другой гаметой в новую клетку.</string>
+    <string name="simple_split_at_once">Сразу</string>
+    <string name="simple_split_early">Рано</string>
+    <string name="simple_split_normal">Обычно</string>
+    <string name="simple_split_late">Поздно</string>
+    <string name="simple_split_at_once_note">Делится каждые полчаса, сколько бы ни весила. Так быстро строится тело организма.</string>
+    <string name="simple_split_mass_note">Делится, когда наберёт %1$s нг массы.</string>
+    <string name="simple_before">До</string>
+    <string name="simple_after">После</string>
+    <string name="simple_picture_hint">Пунктир — линия деления, стрелки — куда смотрит перёд клетки. Коснитесь матери, чтобы выбрать сторону для потомка 1.</string>
+    <string name="simple_children_sides">1 — %1$s, 2 — %2$s</string>
+    <string name="simple_turn_split_left">Повернуть деление влево</string>
+    <string name="simple_turn_split_right">Повернуть деление вправо</string>
+    <string name="simple_glued">Потомки склеены</string>
+    <string name="simple_child">Потомок %1$d</string>
+    <string name="simple_becomes">Становится</string>
+    <string name="simple_new_kind">Новый вид клетки</string>
+    <string name="simple_turn">Поворот</string>
+    <string name="simple_turn_none">без поворота</string>
+    <string name="simple_turn_left">влево на %1$d°</string>
+    <string name="simple_turn_right">вправо на %1$d°</string>
+    <string name="simple_turn_around">кругом</string>
+    <string name="simple_turn_child_left">Повернуть потомка влево</string>
+    <string name="simple_turn_child_right">Повернуть потомка вправо</string>
+    <string name="simple_breaks_away">Отрывается от организма</string>
+    <string name="simple_breaks_away_help">Потомок не забирает связи матери со своей стороны. Если потомки не склеены, он уплывает сам по себе — так организм откладывает потомство.</string>
+    <string name="simple_swim_force">Сила жгутика</string>
+    <string name="simple_density">Плотность пузыря</string>
+    <string name="simple_density_help">Легче среды — пузырь всплывает, тяжелее — тонет. Работает, когда в среде включена сила тяжести.</string>
+    <string name="simple_signal_driven">Это значение зависит от сигнала. Такие настройки — в полном редакторе.</string>
+    <string name="simple_advanced_type">У этого типа есть тонкие настройки: сигналы, каналы, другие режимы. Они — в полном редакторе.</string>
+    <string name="simple_open_full">Открыть полный редактор</string>
+    <string name="msg_no_free_mode">Все 40 режимов генома уже заняты</string>
+
+    <!-- Where a child sits relative to the mother's front, every 45° counter-clockwise from straight ahead. -->
+    <string-array name="simple_sides">
+        <item>впереди</item>
+        <item>впереди слева</item>
+        <item>слева</item>
+        <item>сзади слева</item>
+        <item>сзади</item>
+        <item>сзади справа</item>
+        <item>справа</item>
+        <item>впереди справа</item>
+    </string-array>
+
+    <!-- The colours of the simple editor's palette, in its order. -->
+    <string-array name="palette_names">
+        <item>Бирюзовый</item>
+        <item>Зелёный</item>
+        <item>Салатовый</item>
+        <item>Жёлтый</item>
+        <item>Оранжевый</item>
+        <item>Красный</item>
+        <item>Розовый</item>
+        <item>Фиолетовый</item>
+        <item>Синий</item>
+        <item>Белый</item>
+    </string-array>
+
+    <!-- What each cell type does, in CellType order: one line for the simple editor. -->
+    <string-array name="type_descriptions">
+        <item>Ест пищу, которой касается.</item>
+        <item>Растёт на свету: чем ярче, тем быстрее. Дорог в содержании.</item>
+        <item>Жгутик сзади толкает клетку и весь организм вперёд.</item>
+        <item>Высасывает массу из чужих клеток, которых касается.</item>
+        <item>Запасает много массы и подкармливает соседей.</item>
+        <item>Броня: защищает себя и соседей от хищников, клея, вирусов и ядов.</item>
+        <item>Пузырь: всплывает или тонет.</item>
+        <item>Приклеивается к чужим клеткам и к стенке.</item>
+        <item>Делает нитраты, без которых соседи не могут делиться.</item>
+        <item>Чует пищу, свет или клетки и посылает сигнал.</item>
+        <item>Чует, с какой стороны пища или свет.</item>
+        <item>Мышца: сокращается и изгибается по сигналу.</item>
+        <item>Обрабатывает сигналы и задаёт ритм.</item>
+        <item>Меняет режим по сигналу, не делясь.</item>
+        <item>Выделяет запах, яд, сигнал или липазу.</item>
+        <item>Заражает чужие клетки частью своего генома.</item>
+        <item>Сливается с другой гаметой в клетку с общим геномом.</item>
+        <item>Ползает по соседям и стенке на ресничках.</item>
+    </string-array>
     <string name="preview_hour">t = %1$d h</string>
     <string name="preview_cells">n = %1$d</string>
     <string name="preview_play">Показать рост с начала</string>

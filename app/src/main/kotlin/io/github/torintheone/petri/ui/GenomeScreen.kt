@@ -98,27 +98,50 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     val scrubber: @Composable () -> Unit = {
         GrowthScrubber(hour = editor.previewHour, onHour = { editor.previewHour = it })
     }
+    val simple = viewModel.simpleEditor
     val header: @Composable () -> Unit = {
         EditorHeader(
             genome = genome,
-            snapping = editor.snapping,
-            onSnapping = { editor.snapping = it },
+            simple = simple,
+            onSimple = viewModel::changeEditorLook,
             onRename = viewModel.editor::rename,
         )
     }
-    val strip: @Composable () -> Unit = { ModeStrip(genome, editor.editedMode, editor::selectMode) }
+    val strip: @Composable () -> Unit = {
+        if (simple) {
+            OrganismStrip(genome, editor.editedMode, editor::selectMode)
+        } else {
+            ModeStrip(genome, editor.editedMode, editor::selectMode)
+        }
+    }
     val parameters: @Composable (Modifier) -> Unit = { listModifier ->
         Column(
             modifier = listModifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            ModeEditor(
-                genome = genome,
-                index = editor.editedMode,
-                snapping = editor.snapping,
-                onChange = editor::changeMode,
-                onMakeInitial = { editor.makeInitial(editor.editedMode) },
-            )
+            if (simple) {
+                SimpleModeEditor(
+                    genome = genome,
+                    index = editor.editedMode,
+                    onChange = editor::changeMode,
+                    onNewKind = viewModel::newChildKind,
+                    onOpenFull = { viewModel.changeEditorLook(false) },
+                )
+            } else {
+                SwitchRow(
+                    label = stringResource(R.string.editor_snapping),
+                    checked = editor.snapping,
+                    onChange = { editor.snapping = it },
+                    help = stringResource(R.string.editor_snapping_help),
+                )
+                ModeEditor(
+                    genome = genome,
+                    index = editor.editedMode,
+                    snapping = editor.snapping,
+                    onChange = editor::changeMode,
+                    onMakeInitial = { editor.makeInitial(editor.editedMode) },
+                )
+            }
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -176,9 +199,9 @@ fun GenomeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     }
 }
 
-/** The genome's name (a tap renames it) and «Привязка». */
+/** The genome's name (a tap renames it) and the choice between the simple and the full editor. */
 @Composable
-private fun EditorHeader(genome: Genome, snapping: Boolean, onSnapping: (Boolean) -> Unit, onRename: (String) -> Unit) {
+private fun EditorHeader(genome: Genome, simple: Boolean, onSimple: (Boolean) -> Unit, onRename: (String) -> Unit) {
     var renaming by rememberSaveable { mutableStateOf(false) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -213,12 +236,14 @@ private fun EditorHeader(genome: Genome, snapping: Boolean, onSnapping: (Boolean
                 )
             }
         }
-        LabButton(
-            text = stringResource(R.string.editor_snapping),
-            onClick = { onSnapping(!snapping) },
-            icon = R.drawable.ic_snap,
-            kind = if (snapping) ButtonKind.ACTIVE else ButtonKind.SECONDARY,
-            modifier = Modifier.padding(start = 12.dp),
+        Segmented(
+            options = listOf(true, false),
+            selected = simple,
+            label = { stringResource(if (it) R.string.editor_simple else R.string.editor_full) },
+            onSelect = onSimple,
+            modifier = Modifier
+                .padding(start = 12.dp)
+                .width(LOOK_SWITCH_WIDTH),
         )
     }
     if (renaming) {
@@ -927,6 +952,9 @@ private val GridAxis = Color(0x26FFFFFF)
 private const val PLAY_STEP_MS = 110L
 
 private val MODE_CHIP = 40.dp
+
+/** «Простой | Полный» in the header. */
+private val LOOK_SWITCH_WIDTH = 176.dp
 private const val MEMBRANE_FILL = 0.3f
 private const val UNREACHABLE_ALPHA = 0.3f
 private const val UNREACHABLE_TEXT_ALPHA = 0.55f

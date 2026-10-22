@@ -8,7 +8,7 @@
 
 | Микроскоп | Клетка и график | Редактор генома | Среда |
 | :---: | :---: | :---: | :---: |
-| <img src="docs/screenshots/01-microscope.png" width="200" alt="Микроскоп"> | <img src="docs/screenshots/03-microscope-cell.png" width="200" alt="Карточка клетки и график"> | <img src="docs/screenshots/04-genome.png" width="200" alt="Редактор генома"> | <img src="docs/screenshots/06-environment.png" width="200" alt="Среда"> |
+| <img src="docs/screenshots/01-microscope.png" width="200" alt="Микроскоп"> | <img src="docs/screenshots/03-microscope-cell.png" width="200" alt="Карточка клетки и график"> | <img src="docs/screenshots/04-genome.png" width="200" alt="Редактор генома"> | <img src="docs/screenshots/08-environment.png" width="200" alt="Среда"> |
 
 Снимки делает сам GitHub: после каждого изменения интерфейса он запускает приложение на эмуляторе Android и обновляет картинки в папке [docs/screenshots](docs/screenshots).
 

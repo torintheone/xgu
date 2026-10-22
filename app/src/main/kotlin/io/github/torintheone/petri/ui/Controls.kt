@@ -262,7 +262,7 @@ fun LabSlider(
 
 /** «−» or «+» next to a slider: a tap is one step, holding repeats; a scroll that starts on it does nothing. */
 @Composable
-private fun StepButton(@DrawableRes icon: Int, @StringRes description: Int, enabled: Boolean, onStep: () -> Unit) {
+internal fun StepButton(@DrawableRes icon: Int, @StringRes description: Int, enabled: Boolean, onStep: () -> Unit) {
     val step by rememberUpdatedState(onStep)
     val scope = rememberCoroutineScope()
     val label = stringResource(description)

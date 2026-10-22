@@ -264,6 +264,29 @@ data class Genome(
         return seen
     }
 
+    /**
+     * Modes the organism grown from the initial mode can ever take: the reachable ones and those its virocytes
+     * copy into their victims, with every mode reachable from them. The initial mode comes first.
+     */
+    fun usedModes(): Set<Int> {
+        val used = LinkedHashSet(reachableModes(initialMode))
+        var grew = true
+        while (grew) {
+            grew = false
+            for (index in used.toList()) {
+                val mode = modes[index]
+                if (mode.cellType == CellType.VIROCYTE && used.addAll(reachableModes(mode.virusMode))) grew = true
+            }
+        }
+        return used
+    }
+
+    /** The lowest mode the organism does not use (see [usedModes]), or −1 when it uses all of them. */
+    fun freeMode(): Int {
+        val used = usedModes()
+        return (0 until Mode.MODE_COUNT).firstOrNull { it !in used } ?: -1
+    }
+
     companion object {
         /** The genome the synthesizer starts with: a phagocyte that splits into two free phagocytes. */
         fun default(): Genome = Genome(modes = List(Mode.MODE_COUNT) { Mode.default(it) })
