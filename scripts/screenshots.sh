@@ -14,10 +14,11 @@ mkdir -p "$OUT"
 adb install -r "$APK"
 adb logcat -c
 
-# A clean status bar: the same clock and full signal on every picture.
+# A clean status bar: the same clock and full signal on every picture. Demo mode is allowed well before it is
+# entered: the system interface notices the setting a moment late and would ignore an «enter» sent right after it.
 demo() { adb shell am broadcast -a com.android.systemui.demo -e command "$@" > /dev/null; }
+adb shell settings put global sysui_demo_allowed 1
 clean_status_bar() {
-  adb shell settings put global sysui_demo_allowed 1
   demo enter
   demo clock -e hhmm 1200
   demo battery -e level 100 -e plugged false
@@ -94,7 +95,7 @@ shoot 13-campaign 3
 open_app --es petri.tab campaign --es petri.briefing 2-2
 shoot 14-level-briefing 2
 open_app --es petri.level 2-2 --es petri.preset SWIMMER --es petri.plant 0,-350/-60,-330/60,-330 --ef petri.speed 1.0
-shoot 15-level 3
+shoot 15-level 5
 open_app --ef petri.speed 4.0
 shoot 16-level-result 10
 
