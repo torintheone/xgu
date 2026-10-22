@@ -44,9 +44,12 @@ enum class Preset {
                 )
                 modes[1] = modes[1].copy(splitMass = Mode.SPLIT_NEVER)
             }
+            // Each child turns a quarter, so the next division goes across the last one: a round colony, not a thread.
             PHOTOCYTE_COLONY -> modes[0] = modes[0].copy(
                 cellType = CellType.PHOTOCYTE,
                 makeAdhesin = true,
+                child1Angle = 90f,
+                child2Angle = 90f,
                 red = 0.35f,
                 green = 0.85f,
                 blue = 0.3f,
