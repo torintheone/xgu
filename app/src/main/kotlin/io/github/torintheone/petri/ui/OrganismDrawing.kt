@@ -30,20 +30,21 @@ fun OrganismThumbnail(frame: PreviewFrame?, modifier: Modifier = Modifier) {
             drawLine(ThumbnailGrid, Offset(0f, step * k), Offset(size.width, step * k), strokeWidth = 1f)
         }
         if (frame == null || frame.cellCount == 0) return@Canvas
-        val scale = min(size.width, size.height) / (2f * max(frame.extent, MIN_EXTENT_UM) * FIT_MARGIN)
+        val scale = min(size.width, size.height) / (2f * max(frame.bodyExtent, MIN_EXTENT_UM) * FIT_MARGIN)
         drawOrganism(frame, scale, highlightMode = -1)
     }
 }
 
 /**
- * Draws [frame] centred in the canvas at [scale] pixels per µm. Cells look like on the dish: a membrane in the
- * mode colour, a nucleus, a dot at the front and a simple mark for the type. Cells of [highlightMode] get a ring.
+ * Draws [frame] at [scale] pixels per µm with its organism (see [PreviewFrame.bodyCenterX]) in the middle of the
+ * canvas. Cells look like on the dish: a membrane in the mode colour, a nucleus, a dot at the front and a simple
+ * mark for the type. Cells of [highlightMode] get a ring.
  */
 fun DrawScope.drawOrganism(frame: PreviewFrame, scale: Float, highlightMode: Int) {
     val cx = size.width / 2f
     val cy = size.height / 2f
-    fun sx(x: Float) = cx + (x - frame.centerX) * scale
-    fun sy(y: Float) = cy - (y - frame.centerY) * scale
+    fun sx(x: Float) = cx + (x - frame.bodyCenterX) * scale
+    fun sy(y: Float) = cy - (y - frame.bodyCenterY) * scale
 
     val bondWidth = max(1f, 2.5f * scale)
     for (k in 0 until frame.bondCount) {

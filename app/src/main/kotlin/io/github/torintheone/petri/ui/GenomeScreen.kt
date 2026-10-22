@@ -249,8 +249,9 @@ private fun PreviewPane(
     modifier: Modifier = Modifier,
 ) {
     val frame = frames.getOrNull(hour) ?: frames.lastOrNull()
-    // One scale for all hours, so the organism visibly grows while the slider moves.
-    val extent = remember(frames) { max(frames.maxOfOrNull { it.extent } ?: 0f, MIN_EXTENT_UM) }
+    // One scale for all hours, so the organism visibly grows while the slider moves; buds that drift away
+    // may leave the picture.
+    val extent = remember(frames) { max(frames.maxOfOrNull { it.bodyExtent } ?: 0f, MIN_EXTENT_UM) }
     val shape = MaterialTheme.shapes.medium
     BoxWithConstraints(
         modifier
@@ -391,8 +392,8 @@ private fun Modifier.pointerInputForCells(frame: PreviewFrame?, extent: Float, o
             detectTapGestures { offset ->
                 val shown = frame ?: return@detectTapGestures
                 val scale = min(size.width, size.height) / (2f * extent * FIT_MARGIN)
-                val x = shown.centerX + (offset.x - size.width / 2f) / scale
-                val y = shown.centerY - (offset.y - size.height / 2f) / scale
+                val x = shown.bodyCenterX + (offset.x - size.width / 2f) / scale
+                val y = shown.bodyCenterY - (offset.y - size.height / 2f) / scale
                 val i = shown.cellAt(x, y, slack = TAP_SLACK_PX / scale)
                 if (i >= 0) onTapMode(shown.mode(i))
             }

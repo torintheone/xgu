@@ -47,6 +47,7 @@
     <string name="diag_nitrates">Нитраты</string>
     <string name="diag_bonds">Связи</string>
     <string name="diag_genome">Геном №%1$d, предок №%2$d</string>
+    <string name="diag_genome_original">Геном №%1$d, исходный</string>
     <string name="diag_follow">Следить</string>
     <string name="diag_copy_genome">Копировать геном</string>
 

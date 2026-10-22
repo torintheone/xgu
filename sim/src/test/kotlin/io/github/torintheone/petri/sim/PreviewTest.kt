@@ -82,6 +82,24 @@ class PreviewTest {
     }
 
     @Test
+    fun `the preview follows the organism, not the buds that drift away`() {
+        // The smart swimmer is five cells in a row; by the last hour its seeds have swum far away.
+        val swimmer = GrowthPreview.frames(Preset.SMART_SWIMMER.genome("smart")).last()
+        assertTrue(swimmer.bodyExtent < 100f, "body ${swimmer.bodyExtent}")
+        assertTrue(swimmer.extent > 3 * swimmer.bodyExtent, "all cells ${swimmer.extent}, body ${swimmer.bodyExtent}")
+        // Each plain swimmer is a pair: a mouth and a flagellum.
+        val pair = GrowthPreview.frames(Preset.SWIMMER.genome("swimmer")).last()
+        assertTrue(pair.bodyExtent < 60f, "body ${pair.bodyExtent}")
+        // A chain is one organism, all of it.
+        val chain = GrowthPreview.frames(Preset.CHAIN.genome("chain")).last()
+        assertEquals(chain.extent, chain.bodyExtent)
+        // Free-living cells have no organism to follow: the picture keeps them all.
+        val single = GrowthPreview.frames(Preset.SINGLE_PHAGOCYTES.genome("single")).last()
+        assertEquals(single.extent, single.bodyExtent)
+        assertEquals(single.centerX, single.bodyCenterX)
+    }
+
+    @Test
     fun `tapping a preview cell finds its mode`() {
         val frame = GrowthPreview.frames(Preset.ARC.genome("arc"), hours = 10).last()
         val modes = (0 until frame.cellCount).map { frame.mode(it) }.toSet()

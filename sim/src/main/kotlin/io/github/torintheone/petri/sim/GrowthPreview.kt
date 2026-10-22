@@ -12,13 +12,24 @@ class PreviewFrame(
     val bondCount: Int,
     /** [BOND_FLOATS] per bond: x1, y1, x2, y2. */
     val bonds: FloatArray,
+    /** Which cells belong to the organism the pictures follow (see [bodyCenterX]); null when unknown. */
+    body: BooleanArray? = null,
 ) {
-    /** Middle of the organism, µm. */
+    /** Middle of all cells, µm. */
     val centerX: Float
     val centerY: Float
 
     /** Distance from the middle to the farthest cell edge, µm. */
     val extent: Float
+
+    /**
+     * Middle and size of the organism the pictures follow: the largest group of cells joined through bonds.
+     * Pictures keep it in view, so buds that come off and drift away do not shrink it to a dot. While no cells are
+     * joined (free-living cells, the first divisions) these are the middle and size of all cells.
+     */
+    val bodyCenterX: Float
+    val bodyCenterY: Float
+    val bodyExtent: Float
 
     init {
         var sx = 0f
@@ -35,6 +46,30 @@ class PreviewFrame(
             far = maxOf(far, hypot(cells[o] - centerX, cells[o + 1] - centerY) + cells[o + 2])
         }
         extent = far
+
+        val bodyCount = body?.count { it } ?: 0
+        if (body != null && bodyCount >= BODY_MIN_CELLS) {
+            var bx = 0f
+            var by = 0f
+            for (i in 0 until cellCount) {
+                if (!body[i]) continue
+                bx += cells[i * CELL_FLOATS]
+                by += cells[i * CELL_FLOATS + 1]
+            }
+            bodyCenterX = bx / bodyCount
+            bodyCenterY = by / bodyCount
+            var bodyFar = 0f
+            for (i in 0 until cellCount) {
+                if (!body[i]) continue
+                val o = i * CELL_FLOATS
+                bodyFar = maxOf(bodyFar, hypot(cells[o] - bodyCenterX, cells[o + 1] - bodyCenterY) + cells[o + 2])
+            }
+            bodyExtent = bodyFar
+        } else {
+            bodyCenterX = centerX
+            bodyCenterY = centerY
+            bodyExtent = extent
+        }
     }
 
     fun x(i: Int): Float = cells[i * CELL_FLOATS]
@@ -66,6 +101,9 @@ class PreviewFrame(
     companion object {
         const val CELL_FLOATS = 10
         const val BOND_FLOATS = 4
+
+        /** The largest organism is followed once it has this many cells. */
+        const val BODY_MIN_CELLS = 2
     }
 }
 
@@ -129,7 +167,42 @@ class GrowthPreview(genome: Genome) {
             bonds[o + 3] = c.y[b.b[id]]
             m++
         }
-        return PreviewFrame(hour, n, cells, m, bonds)
+        return PreviewFrame(hour, n, cells, m, bonds, mainBody(n))
+    }
+
+    /**
+     * The organism the preview follows: the largest group of cells joined through bonds. Of equal groups it takes
+     * the one with the oldest cell: a dividing cell keeps its place in the list and its child comes after it, so a
+     * lower place means an older cell, and the choice does not jump between look-alike offspring from hour to hour.
+     */
+    private fun mainBody(n: Int): BooleanArray {
+        // Union-find over the bonds; the root of each group is its lowest place in the list.
+        val parent = IntArray(n) { it }
+        fun root(i: Int): Int {
+            var r = i
+            while (parent[r] != r) r = parent[r]
+            var k = i
+            while (parent[k] != r) {
+                val next = parent[k]
+                parent[k] = r
+                k = next
+            }
+            return r
+        }
+        val b = world.bonds
+        for (id in 0 until b.size) {
+            if (!b.alive[id] || b.b[id] == Bonds.WALL) continue
+            val ra = root(b.a[id])
+            val rb = root(b.b[id])
+            if (ra != rb) parent[maxOf(ra, rb)] = minOf(ra, rb)
+        }
+        val size = IntArray(n)
+        for (i in 0 until n) size[root(i)]++
+        var best = -1
+        for (i in 0 until n) {
+            if (root(i) == i && (best < 0 || size[i] > size[best])) best = i
+        }
+        return BooleanArray(n) { best >= 0 && root(it) == best }
     }
 
     companion object {

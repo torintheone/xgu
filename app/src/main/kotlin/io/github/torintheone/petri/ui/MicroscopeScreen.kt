@@ -388,7 +388,11 @@ private fun SpecimenCard(
             }
         }
         Text(
-            text = stringResource(R.string.diag_genome, info.genomeId, info.parentGenomeId),
+            text = if (info.parentGenomeId == 0L) {
+                stringResource(R.string.diag_genome_original, info.genomeId)
+            } else {
+                stringResource(R.string.diag_genome, info.genomeId, info.parentGenomeId)
+            },
             style = LabType.Mono,
             color = Lab.TextDim,
             modifier = Modifier.padding(top = 10.dp),
