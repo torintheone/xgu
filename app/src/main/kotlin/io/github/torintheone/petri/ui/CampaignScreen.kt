@@ -83,7 +83,11 @@ fun CampaignScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(start = 2.dp, top = 4.dp)) {
             Column(Modifier.weight(1f)) {
                 Eyebrow(stringResource(R.string.tab_campaign))
-                Text(stringResource(R.string.campaign_title), style = MaterialTheme.typography.titleLarge, color = Lab.Text)
+                Text(
+                    text = stringResource(if (viewModel.showAchievements) R.string.achievements_title else R.string.campaign_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Lab.Text,
+                )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_star), contentDescription = null, tint = Lab.Amber, modifier = Modifier.size(18.dp))

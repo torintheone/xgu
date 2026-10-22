@@ -566,6 +566,7 @@
 
     <!-- Achievements. -->
     <string name="campaign_levels">Опыты</string>
+    <string name="achievements_title">Достижения</string>
     <string name="campaign_achievements">Достижения · %1$d/%2$d</string>
     <string name="achievements_intro">Достижения даются за опыты кампании, за жизнь в чашке и за открытия. Серые ещё впереди; у тех, что набираются постепенно, видно, сколько уже сделано.</string>
     <string name="achievements_campaign">Кампания</string>
