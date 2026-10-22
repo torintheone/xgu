@@ -14,20 +14,24 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
- * Draws the dish from the latest simulation snapshot: medium and light, food, bonds, then cells.
- * All cells go out in one instanced draw call; their look is computed in the fragment shader (see [Shaders]).
+ * Draws the dish from the latest simulation snapshot: medium and light, food, bonds, cells, then the effects of
+ * divisions and deaths. All cells go out in one instanced draw call; their look is computed in the fragment shader
+ * (see [Shaders]).
  *
  * Between two steps of the world the cells glide from where they were shown to their new places, so slow time
  * looks smooth: each move takes as long as the world took to make that step. [requestFrame] asks for the next
- * frame while something still moves.
+ * frame while something still moves. [effectsOn] switches the effects (see [CellEffects]).
  */
 class DishRenderer(
     private val runner: SimulationRunner,
     private val camera: DishCamera,
     private val requestFrame: () -> Unit,
+    private val effectsOn: () -> Boolean,
 ) : GLSurfaceView.Renderer {
     private val viewProjection = FloatArray(9)
     private val zoneData = FloatArray(WorldSnapshot.MAX_ZONES * WorldSnapshot.ZONE_FLOATS)
+    private val effects = CellEffects()
+    private val effectInstances = FloatArray(CellEffects.MAX_EFFECTS * CellEffects.INSTANCE)
 
     // Where the cells were shown in the last frame, by place in the snapshot shown, with the cell that held it.
     private var shownX = FloatArray(0)
@@ -67,36 +71,43 @@ class DishRenderer(
     private var foodProgram = 0
     private var bondProgram = 0
     private var cellProgram = 0
+    private var effectProgram = 0
 
     private var dishArray = 0
     private var foodArray = 0
     private var bondArray = 0
     private var cellArray = 0
+    private var effectArray = 0
     private var foodBuffer = 0
     private var bondBuffer = 0
     private var cellBuffer = 0
+    private var effectBuffer = 0
 
     private var foodData = floats(256)
     private var bondData = floats(256)
     private var cellData = floats(256)
+    private var effectData = floats(CellEffects.MAX_EFFECTS * CellEffects.INSTANCE)
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         dishProgram = GlPrograms.build(Shaders.DISH_VERTEX, Shaders.DISH_FRAGMENT)
         foodProgram = GlPrograms.build(Shaders.FOOD_VERTEX, Shaders.FOOD_FRAGMENT)
         bondProgram = GlPrograms.build(Shaders.BOND_VERTEX, Shaders.BOND_FRAGMENT)
         cellProgram = GlPrograms.build(Shaders.CELL_VERTEX, Shaders.CELL_FRAGMENT)
+        effectProgram = GlPrograms.build(Shaders.EFFECT_VERTEX, Shaders.EFFECT_FRAGMENT)
 
-        val ids = IntArray(4)
-        GLES30.glGenVertexArrays(4, ids, 0)
+        val ids = IntArray(5)
+        GLES30.glGenVertexArrays(5, ids, 0)
         dishArray = ids[0]
         foodArray = ids[1]
         bondArray = ids[2]
         cellArray = ids[3]
-        GLES30.glGenBuffers(4, ids, 0)
+        effectArray = ids[4]
+        GLES30.glGenBuffers(5, ids, 0)
         val quadBuffer = ids[0]
         foodBuffer = ids[1]
         bondBuffer = ids[2]
         cellBuffer = ids[3]
+        effectBuffer = ids[4]
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, quadBuffer)
         GLES30.glBufferData(
@@ -115,6 +126,11 @@ class DishRenderer(
         instanced(1, 4, WorldSnapshot.CELL_FLOATS, 0)
         instanced(2, 3, WorldSnapshot.CELL_FLOATS, 4)
         instanced(3, 4, WorldSnapshot.CELL_FLOATS, 7)
+        GLES30.glBindVertexArray(effectArray)
+        bindQuad(quadBuffer, CENTRED_QUAD)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, effectBuffer)
+        instanced(1, 4, CellEffects.INSTANCE, 0)
+        instanced(2, 4, CellEffects.INSTANCE, 4)
         GLES30.glBindVertexArray(bondArray)
         bindQuad(quadBuffer, SEGMENT_QUAD)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, bondBuffer)
@@ -141,7 +157,7 @@ class DishRenderer(
         camera.setDishRadius(snapshot.dishRadius)
         takeSnapshot(snapshot, now)
         val alpha = if (moveNanos <= 0L) 1f else ((now - moveStartNanos).toFloat() / moveNanos).coerceIn(0f, 1f)
-        glide(snapshot, alpha)
+        glide(snapshot, alpha, now)
 
         val selected = selectedIndex(snapshot, runner.selectedUid)
         if (selected >= 0 && camera.followUid != 0 && camera.followUid == snapshot.cellUids[selected]) {
@@ -157,10 +173,11 @@ class DishRenderer(
             drawFood(snapshot, pixelsPerUnit)
             drawBonds(snapshot, pixelsPerUnit)
             drawCells(snapshot, pixelsPerUnit, selected)
+            drawEffects(now, pixelsPerUnit)
             GLES30.glDisable(GLES30.GL_BLEND)
             GLES30.glBindVertexArray(0)
         }
-        if (alpha < 1f || cameraMoving) requestFrame()
+        if (alpha < 1f || cameraMoving || effects.busy) requestFrame()
     }
 
     /**
@@ -180,6 +197,7 @@ class DishRenderer(
     /** A new snapshot starts a new glide: from where each cell is shown now to where the world put it. */
     private fun takeSnapshot(snapshot: WorldSnapshot, now: Long) {
         if (snapshot.serial == seenSerial) return
+        effects.take(snapshot, now, effectsOn())
         // Only a real step glides; a command (a tweezers move, a fresh cell) and a long pause jump at once.
         val stepped = seenSerial >= 0 && snapshot.stepCount != seenStep
         val interval = snapshot.publishedNanos - lastPublishedNanos
@@ -209,8 +227,11 @@ class DishRenderer(
         moveNanos = if (glides) interval else 0L
     }
 
-    /** Writes this frame's cell and bond records: positions part of the way ([alpha]) along the glide. */
-    private fun glide(snapshot: WorldSnapshot, alpha: Float) {
+    /**
+     * Writes this frame's cell and bond records: positions part of the way ([alpha]) along the glide, newborn cells
+     * a little smaller or bigger while they swell.
+     */
+    private fun glide(snapshot: WorldSnapshot, alpha: Float, now: Long) {
         val n = snapshot.cellCount
         val floats = n * WorldSnapshot.CELL_FLOATS
         if (frameCells.size < floats) frameCells = FloatArray(floats + floats / 2 + WorldSnapshot.CELL_FLOATS * 16)
@@ -231,6 +252,7 @@ class DishRenderer(
                 frameCells[o + 1] = fromY[i] + (frameCells[o + 1] - fromY[i]) * alpha
                 frameCells[o + 3] = fromAngle[i] + shortestTurn(fromAngle[i], frameCells[o + 3]) * alpha
             }
+            if (effects.busy) frameCells[o + 2] *= effects.scale(snapshot.cellUids[i], now)
             shownX[i] = frameCells[o]
             shownY[i] = frameCells[o + 1]
             shownAngle[i] = frameCells[o + 3]
@@ -331,6 +353,17 @@ class DishRenderer(
         GLES30.glUniformMatrix3fv(uniform(cellProgram, "uViewProjection"), 1, false, viewProjection, 0)
         GLES30.glUniform1f(uniform(cellProgram, "uPixelsPerUnit"), pixelsPerUnit)
         GLES30.glBindVertexArray(cellArray)
+        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, count)
+    }
+
+    private fun drawEffects(now: Long, pixelsPerUnit: Float) {
+        val count = effects.pack(now, effectInstances)
+        if (count == 0) return
+        effectData = upload(effectBuffer, effectData, effectInstances, count * CellEffects.INSTANCE)
+        GLES30.glUseProgram(effectProgram)
+        GLES30.glUniformMatrix3fv(uniform(effectProgram, "uViewProjection"), 1, false, viewProjection, 0)
+        GLES30.glUniform1f(uniform(effectProgram, "uPixelsPerUnit"), pixelsPerUnit)
+        GLES30.glBindVertexArray(effectArray)
         GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, count)
     }
 

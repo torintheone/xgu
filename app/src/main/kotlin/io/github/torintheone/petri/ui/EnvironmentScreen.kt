@@ -97,7 +97,7 @@ fun EnvironmentScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) 
     }
 }
 
-/** Background music: on or off and how loud. */
+/** Background music and sound effects: on or off and how loud; the effects of divisions and deaths on the dish. */
 @Composable
 private fun SoundSettings(viewModel: PetriViewModel) {
     EnvSection(R.string.env_sound, R.drawable.ic_music) {
@@ -108,9 +108,22 @@ private fun SoundSettings(viewModel: PetriViewModel) {
             range = 0f..1f,
             valueText = stringResource(R.string.percent_value, (viewModel.musicVolume * 100f).roundToInt()),
             onChange = viewModel::changeMusicVolume,
-            levels = MUSIC_VOLUME_LEVELS,
+            levels = VOLUME_LEVELS,
             enabled = viewModel.musicOn,
         )
+        Hairline(Modifier.padding(vertical = 6.dp))
+        SwitchRow(stringResource(R.string.env_sounds), viewModel.soundsOn, viewModel::changeSoundsOn, stringResource(R.string.env_sounds_help))
+        SliderRow(
+            label = stringResource(R.string.env_sounds_volume),
+            value = viewModel.soundsVolume,
+            range = 0f..1f,
+            valueText = stringResource(R.string.percent_value, (viewModel.soundsVolume * 100f).roundToInt()),
+            onChange = viewModel::changeSoundsVolume,
+            levels = VOLUME_LEVELS,
+            enabled = viewModel.soundsOn,
+        )
+        Hairline(Modifier.padding(vertical = 6.dp))
+        SwitchRow(stringResource(R.string.env_effects), viewModel.effectsOn, viewModel::changeEffectsOn, stringResource(R.string.env_effects_help))
     }
 }
 
@@ -584,8 +597,8 @@ private fun countLevels(range: IntRange): Int = (range.last - range.first) / COU
 
 private const val CHIP_EDGE_ALPHA = 0.6f
 
-/** Music volume in steps of 5 %. */
-private const val MUSIC_VOLUME_LEVELS = 21
+/** Volumes in steps of 5 %. */
+private const val VOLUME_LEVELS = 21
 
 /** Counts (cells, food) move in hundreds. */
 private const val COUNT_STEP = 100

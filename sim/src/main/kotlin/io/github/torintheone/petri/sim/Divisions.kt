@@ -47,6 +47,7 @@ internal class Divisions(private val world: World) {
         val nx = cos(towardsChild1)
         val ny = sin(towardsChild1)
 
+        val motherRadius = world.radiusOf(c.mass[i])
         val mass = c.mass[i] - max(0f, mode.cytoskeleton - 0.5f) * SimConfig.CYTOSKELETON_DIVISION_COST
         if (mass <= 0f) {
             world.kill(i)
@@ -99,6 +100,7 @@ internal class Divisions(private val world: World) {
         world.setMode(i, mode.child1Mode)
 
         inheritBonds(i, j, nx, ny, theta, mode)
+        world.recordDivision(px, py, motherRadius, mode, c.uid[i], c.uid[j])
 
         if (mode.makeAdhesin) {
             val line = atan2(y2 - y1, x2 - x1)

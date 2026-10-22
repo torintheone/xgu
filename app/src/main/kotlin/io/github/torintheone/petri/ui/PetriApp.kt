@@ -65,7 +65,10 @@ enum class Tab(@param:StringRes val title: Int, @param:DrawableRes val icon: Int
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PetriApp(viewModel: PetriViewModel) {
-    val select: (Tab) -> Unit = { viewModel.tab = it }
+    val select: (Tab) -> Unit = {
+        if (it != viewModel.tab) viewModel.click()
+        viewModel.tab = it
+    }
     BoxWithConstraints(
         Modifier
             .fillMaxSize()

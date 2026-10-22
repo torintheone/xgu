@@ -87,6 +87,14 @@ class World(
     /** The campaign level played in this dish, if any; its verdict is renewed every [JUDGE_STEPS] steps. */
     var level: LevelSession? = null
 
+    // Divisions and deaths for the renderer's effects (see [WorldSnapshot.events]); not part of a saved dish.
+    private val events = FloatArray(WorldSnapshot.EVENT_RING * WorldSnapshot.EVENT_FLOATS)
+    private val eventUids = IntArray(WorldSnapshot.EVENT_RING * 2)
+
+    /** Divisions and deaths recorded so far. */
+    var eventSerial: Long = 0L
+        private set
+
     /** Most cells the dish may hold now. */
     internal val cellLimit: Int get() = if (previewCellLimit > 0) previewCellLimit else settings.maxCells
 
@@ -214,7 +222,9 @@ class World(
 
     fun removeCell(uid: Int) {
         val i = indexOfUid(uid)
-        if (i >= 0) removeCellAt(i)
+        if (i < 0) return
+        recordDeath(i)
+        removeCellAt(i)
     }
 
     /** The cell under a point, with a little slack for fingers; 0 when there is none. */
@@ -552,6 +562,7 @@ class World(
                 i++
                 continue
             }
+            recordDeath(i)
             val dissolved = flags and Cells.FLAG_ALL_TO_FOOD != 0
             if (previewGrowth < 0f && (settings.corpsesBecomeFood || dissolved)) {
                 // The remains fall apart into ordinary-sized particles spread over where the cell was.
@@ -566,6 +577,31 @@ class World(
             }
             removeCellAt(i)
         }
+    }
+
+    /** Notes a division of the cell that was at ([px], [py]) with [radius], now children [child1] and [child2]. */
+    internal fun recordDivision(px: Float, py: Float, radius: Float, mode: Mode, child1: Int, child2: Int) {
+        recordEvent(WorldSnapshot.EVENT_DIVISION, px, py, radius, mode, child1, child2)
+    }
+
+    private fun recordDeath(i: Int) {
+        recordEvent(WorldSnapshot.EVENT_DEATH, cells.x[i], cells.y[i], radiusOf(cells.mass[i]), modeOf(i), cells.uid[i], 0)
+    }
+
+    private fun recordEvent(kind: Float, px: Float, py: Float, radius: Float, mode: Mode, uidA: Int, uidB: Int) {
+        if (previewGrowth >= 0f) return
+        val place = (eventSerial % WorldSnapshot.EVENT_RING).toInt()
+        val o = place * WorldSnapshot.EVENT_FLOATS
+        events[o] = kind
+        events[o + 1] = px
+        events[o + 2] = py
+        events[o + 3] = radius
+        events[o + 4] = mode.red
+        events[o + 5] = mode.green
+        events[o + 6] = mode.blue
+        eventUids[2 * place] = uidA
+        eventUids[2 * place + 1] = uidB
+        eventSerial++
     }
 
     // ---- Rendering ----
@@ -635,6 +671,10 @@ class World(
             f[o + 2] = food.radius(k)
             f[o + 3] = if (food.coated[k]) 1f else 0f
         }
+
+        System.arraycopy(events, 0, out.events, 0, events.size)
+        System.arraycopy(eventUids, 0, out.eventUids, 0, eventUids.size)
+        out.eventSerial = eventSerial
 
         var zones = 0
         val rules = level?.level

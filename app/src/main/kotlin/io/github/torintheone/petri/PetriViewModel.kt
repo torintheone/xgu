@@ -15,6 +15,8 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.torintheone.petri.audio.MusicPlayer
+import io.github.torintheone.petri.audio.Sound
+import io.github.torintheone.petri.audio.SoundEffects
 import io.github.torintheone.petri.data.CampaignProgress
 import io.github.torintheone.petri.data.DishEntry
 import io.github.torintheone.petri.data.GenbankEntry
@@ -109,6 +111,22 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         private set
 
     var musicVolume by mutableFloatStateOf(music.volume)
+        private set
+
+    private val sounds = SoundEffects(application).apply {
+        enabled = preferences.getBoolean(KEY_SOUNDS, true)
+        volume = preferences.getFloat(KEY_SOUNDS_VOLUME, SoundEffects.DEFAULT_VOLUME)
+    }
+
+    /** Sound effects on or off. */
+    var soundsOn by mutableStateOf(sounds.enabled)
+        private set
+
+    var soundsVolume by mutableFloatStateOf(sounds.volume)
+        private set
+
+    /** Divisions and deaths shown with their effects on the dish. */
+    var effectsOn by mutableStateOf(preferences.getBoolean(KEY_EFFECTS, true))
         private set
 
     /** The genome editor shows its simple view (true) or every parameter (false). */
@@ -393,6 +411,30 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         preferences.edit().putFloat(KEY_MUSIC_VOLUME, value).apply()
     }
 
+    fun changeSoundsOn(on: Boolean) {
+        soundsOn = on
+        sounds.enabled = on
+        preferences.edit().putBoolean(KEY_SOUNDS, on).apply()
+        click()
+    }
+
+    fun changeSoundsVolume(value: Float) {
+        soundsVolume = value
+        sounds.volume = value
+        preferences.edit().putFloat(KEY_SOUNDS_VOLUME, value).apply()
+        click()
+    }
+
+    fun changeEffectsOn(on: Boolean) {
+        effectsOn = on
+        preferences.edit().putBoolean(KEY_EFFECTS, on).apply()
+    }
+
+    /** The quiet tick of a button. */
+    fun click() {
+        sounds.play(Sound.TAP)
+    }
+
     fun changeEditorLook(simple: Boolean) {
         simpleEditor = simple
         preferences.edit().putBoolean(KEY_SIMPLE_EDITOR, simple).apply()
@@ -651,6 +693,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     private fun afterPlanting(result: PlantResult, genome: Genome, plantingsUsed: Int?) {
         val level = activeLevel
         if (level != null && plantingsUsed != null) progress.plantingsUsed = plantingsUsed
+        sounds.play(if (result == PlantResult.PLANTED) Sound.PLANT else Sound.DENY)
         when (result) {
             PlantResult.PLANTED, PlantResult.NO_ROOM -> Unit
             PlantResult.NO_PLANTINGS_LEFT -> say(R.string.msg_no_plantings)
@@ -765,6 +808,9 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
             if (status.outcome == LevelOutcome.WON) {
                 progress.recordWin(level.id, status.stars)
                 stars[level.id] = maxOf(stars[level.id] ?: 0, status.stars)
+                sounds.play(Sound.WIN)
+            } else {
+                sounds.play(Sound.LOSE)
             }
             levelResult = status
         }
@@ -786,6 +832,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
     override fun onCleared() {
         music.release()
+        sounds.release()
         runner.close()
     }
 
@@ -807,6 +854,9 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         private const val KEY_MUSIC = "music"
         private const val KEY_MUSIC_VOLUME = "music_volume"
         private const val KEY_SIMPLE_EDITOR = "simple_editor"
+        private const val KEY_SOUNDS = "sounds"
+        private const val KEY_SOUNDS_VOLUME = "sounds_volume"
+        private const val KEY_EFFECTS = "effects"
 
         /** One press of «+» or «−» zooms by this much. */
         private const val ZOOM_STEP = 1.6f

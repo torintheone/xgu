@@ -405,9 +405,14 @@
     <string name="env_deadly_walls">Гибель на краю</string>
     <string name="env_blocked_flagellum_kills">Склеенный жгутик убивает клетку</string>
     <string name="env_reset">Сбросить настройки</string>
-    <string name="env_sound">Звук</string>
+    <string name="env_sound">Звук и эффекты</string>
     <string name="env_music">Фоновая музыка</string>
     <string name="env_music_volume">Громкость музыки</string>
+    <string name="env_sounds">Звуковые эффекты</string>
+    <string name="env_sounds_help">Короткие звуки: опыт пройден или не удался, получено достижение, посажена клетка, нажата кнопка.</string>
+    <string name="env_sounds_volume">Громкость эффектов</string>
+    <string name="env_effects">Анимация деления и гибели</string>
+    <string name="env_effects_help">Деление клетки отмечается вспышкой, новые клетки плавно вырастают, а погибшая клетка распадается на частицы.</string>
     <string name="dialog_reset_title">Сбросить настройки среды?</string>
     <string name="dialog_reset_text">Все параметры среды вернутся к значениям по умолчанию. Клетки и пища останутся.</string>
     <string name="per_hour_value">%1$d в час</string>

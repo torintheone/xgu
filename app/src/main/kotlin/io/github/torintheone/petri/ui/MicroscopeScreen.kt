@@ -104,18 +104,21 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     var caption by remember { mutableStateOf(CaptionSubject.TOOL) }
     var captionStamp by remember { mutableIntStateOf(0) }
     val selectTool: (Tool) -> Unit = { tool ->
+        viewModel.click()
         viewModel.selectTool(tool)
         viewModel.choosingSpeed = false
         caption = CaptionSubject.TOOL
         captionStamp++
     }
     val selectTime: (TimeMode) -> Unit = { mode ->
+        viewModel.click()
         viewModel.selectTimeMode(mode)
         viewModel.choosingSpeed = false
         caption = CaptionSubject.TIME
         captionStamp++
     }
     val selectSpeed: (Double) -> Unit = { value ->
+        viewModel.click()
         viewModel.selectSpeed(value)
         viewModel.choosingSpeed = false
         caption = CaptionSubject.TIME
@@ -123,9 +126,18 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     }
     val cameraControls: @Composable (Modifier) -> Unit = { controlsModifier ->
         CameraControls(
-            onZoomOut = viewModel::zoomOut,
-            onZoomIn = viewModel::zoomIn,
-            onWholeDish = viewModel::showWholeDish,
+            onZoomOut = {
+                viewModel.click()
+                viewModel.zoomOut()
+            },
+            onZoomIn = {
+                viewModel.click()
+                viewModel.zoomIn()
+            },
+            onWholeDish = {
+                viewModel.click()
+                viewModel.showWholeDish()
+            },
             modifier = controlsModifier,
         )
     }
@@ -229,7 +241,10 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                     speed = viewModel.speed,
                     onTimeMode = selectTime,
                     choosingSpeed = viewModel.choosingSpeed,
-                    onChooseSpeed = { viewModel.choosingSpeed = !viewModel.choosingSpeed },
+                    onChooseSpeed = {
+                        viewModel.click()
+                        viewModel.choosingSpeed = !viewModel.choosingSpeed
+                    },
                     button = dockButton,
                 )
             }
@@ -240,7 +255,9 @@ fun MicroscopeScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
 @Composable
 private fun DishView(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val view = remember(viewModel) { DishSurfaceView(context, viewModel.runner, viewModel.camera, viewModel) }
+    val view = remember(viewModel) {
+        DishSurfaceView(context, viewModel.runner, viewModel.camera, viewModel, effectsOn = { viewModel.effectsOn })
+    }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // GLSurfaceView must follow the activity: release the GL thread while the app is not in front.
     DisposableEffect(lifecycle, view) {

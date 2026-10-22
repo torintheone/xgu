@@ -36,6 +36,27 @@ class WorldTest {
     }
 
     @Test
+    fun `divisions and deaths are handed to the renderer as events`() {
+        val world = World(SubstrateSettings(foodRate = 0f, lightBrightness = 0f), 5L)
+        val mother = world.addCell(Genome.default(), 0f, 0f, mass = 3f)
+        while (world.eventSerial == 0L && world.ageHours < 2.0) world.step()
+        val snapshot = WorldSnapshot()
+        world.writeSnapshot(snapshot)
+        assertEquals(1L, snapshot.eventSerial)
+        assertEquals(WorldSnapshot.EVENT_DIVISION, snapshot.events[0])
+        assertEquals(mother, snapshot.eventUids[0], "child 1 keeps the mother's uid")
+        val child = snapshot.eventUids[1]
+        assertTrue(world.indexOfUid(child) >= 0)
+        assertTrue(snapshot.events[3] > 0f, "the mother's radius")
+
+        world.removeCell(child)
+        world.writeSnapshot(snapshot)
+        assertEquals(2L, snapshot.eventSerial)
+        assertEquals(WorldSnapshot.EVENT_DEATH, snapshot.events[WorldSnapshot.EVENT_FLOATS])
+        assertEquals(child, snapshot.eventUids[2])
+    }
+
+    @Test
     fun `settings outside their range are pulled back in`() {
         val world = World(SubstrateSettings(dishDiameterMm = 5f, maxCells = 9_999, viscosity = -3f))
         assertEquals(3f, world.settings.dishDiameterMm)

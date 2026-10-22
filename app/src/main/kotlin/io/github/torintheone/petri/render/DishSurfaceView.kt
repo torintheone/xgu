@@ -40,9 +40,10 @@ class DishSurfaceView(
     private val runner: SimulationRunner,
     private val camera: DishCamera,
     private val gestures: DishGestures,
+    effectsOn: () -> Boolean,
 ) : GLSurfaceView(context) {
     private val requestFrame: () -> Unit = { requestRender() }
-    private val renderer = DishRenderer(runner, camera, requestFrame)
+    private val renderer = DishRenderer(runner, camera, requestFrame, effectsOn)
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
     private val fingerRadius = FINGER_DP * context.resources.displayMetrics.density
 

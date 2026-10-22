@@ -354,4 +354,90 @@ internal object Shaders {
             fragColor = col;
         }
     """.trimIndent()
+
+    /**
+     * One instance per effect: [x, y, radius, kind] and [red, green, blue, progress]. Kind 0 is a division — a ring of
+     * light spreading from the mother — and kind 1 a death: the cell's ghost shrinks, a thin ring spreads and debris
+     * flies apart.
+     */
+    val EFFECT_VERTEX = """
+        #version 300 es
+        layout(location = 0) in vec2 aCorner;
+        layout(location = 1) in vec4 aBody;
+        layout(location = 2) in vec4 aLook;
+        uniform mat3 uViewProjection;
+        uniform float uPixelsPerUnit;
+        out vec2 vLocal;
+        flat out vec3 vColor;
+        flat out float vKind;
+        flat out float vProgress;
+        flat out float vPixel;
+
+        const float EXTENT = 2.4;
+
+        void main() {
+            vec2 local = aCorner * EXTENT;
+            // Even a tiny cell gets an effect one can see.
+            float radius = max(aBody.z, 3.0 / uPixelsPerUnit);
+            vec3 clip = uViewProjection * vec3(aBody.xy + local * radius, 1.0);
+            gl_Position = vec4(clip.xy, 0.0, 1.0);
+            vLocal = local;
+            vColor = aLook.rgb;
+            vKind = aBody.w;
+            vProgress = aLook.a;
+            vPixel = 1.0 / max(radius * uPixelsPerUnit, 0.001);
+        }
+    """.trimIndent()
+
+    // vLocal is measured in cell radii.
+    val EFFECT_FRAGMENT = """
+        #version 300 es
+        precision mediump float;
+
+        in vec2 vLocal;
+        flat in vec3 vColor;
+        flat in float vKind;
+        flat in float vProgress;
+        flat in float vPixel;
+        out vec4 fragColor;
+
+        const vec3 DEATH_TINT = vec3(0.62, 0.55, 0.48);
+        const float DEBRIS_STEP = 0.8975979;
+
+        void main() {
+            float d = length(vLocal);
+            float t = vProgress;
+            float fade = 1.0 - t;
+            float alpha;
+            vec3 color;
+            if (vKind < 0.5) {
+                float grow = 1.0 - fade * fade;
+                float ringRadius = mix(0.7, 2.2, grow);
+                float width = max(0.10 + 0.12 * t, 1.5 * vPixel);
+                float offset = (d - ringRadius) / width;
+                float ring = exp(-offset * offset) * fade * 0.6;
+                float flash = exp(-d * d * 3.0) * (1.0 - smoothstep(0.0, 0.35, t)) * 0.45;
+                alpha = ring + flash;
+                color = mix(vColor, vec3(1.0), 0.45);
+            } else {
+                float ghostRadius = 0.95 * (1.0 - 0.6 * t);
+                float edge = max(0.06, vPixel);
+                float ghost = (1.0 - smoothstep(ghostRadius - edge, ghostRadius, d)) * fade * 0.35;
+                float offset = (d - mix(1.0, 2.0, t)) / max(0.07, 1.5 * vPixel);
+                float ring = exp(-offset * offset) * fade * 0.45;
+                float spread = mix(0.6, 2.1, sqrt(t));
+                float size = max(0.12 * (1.0 - 0.5 * t), 1.5 * vPixel);
+                float debris = 0.0;
+                for (int k = 0; k < 7; k++) {
+                    float a = float(k) * DEBRIS_STEP + 0.4;
+                    vec2 q = vLocal - vec2(cos(a), sin(a)) * spread;
+                    debris += exp(-dot(q, q) / (size * size));
+                }
+                alpha = ghost + ring + debris * 0.85 * fade;
+                color = mix(vColor, DEATH_TINT, 0.45);
+            }
+            alpha = clamp(alpha, 0.0, 1.0);
+            fragColor = vec4(color * alpha, alpha);
+        }
+    """.trimIndent()
 }

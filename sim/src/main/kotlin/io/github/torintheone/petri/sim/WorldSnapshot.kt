@@ -48,6 +48,15 @@ class WorldSnapshot {
     val zones = FloatArray(MAX_ZONES * ZONE_FLOATS)
     var zoneCount: Int = 0
 
+    /**
+     * The last [EVENT_RING] divisions and deaths, for the renderer's effects: a ring of [EVENT_FLOATS] per event
+     * (kind, x, y, radius, red, green, blue) plus two cell uids in [eventUids]. Event number n (counting from 1)
+     * sits at place (n − 1) mod [EVENT_RING]; [eventSerial] is the number of the newest.
+     */
+    val events = FloatArray(EVENT_RING * EVENT_FLOATS)
+    val eventUids = IntArray(EVENT_RING * 2)
+    var eventSerial: Long = 0L
+
     internal fun ensureCells(n: Int) {
         if (cellUids.size < n) {
             val size = grow(n)
@@ -80,6 +89,15 @@ class WorldSnapshot {
         /** Where the synthesizer may plant, and where the player's cells must get to. */
         const val ZONE_PLANTING = 0f
         const val ZONE_TARGET = 1f
+
+        const val EVENT_RING = 256
+        const val EVENT_FLOATS = 7
+
+        /** A cell divided: x, y and radius are the mother's; the uids are her two children's. */
+        const val EVENT_DIVISION = 0f
+
+        /** A cell died or was removed: x, y and radius are its last; the first uid is its own. */
+        const val EVENT_DEATH = 1f
 
         /** Cell flags the renderer draws. */
         const val VISIBLE_FLAGS = Cells.FLAG_MIRRORED or Cells.FLAG_PROTECTED or Cells.FLAG_TAIL_BLOCKED
