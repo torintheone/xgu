@@ -214,7 +214,8 @@ internal class Behaviors(val world: World) {
 
     /**
      * Virocyte: now and then infects a touching unprotected cell of another organism. The victim gets the virus mode
-     * and every mode reachable from it, copied from the virocyte's genome, and switches to the virus mode.
+     * and every mode reachable from it, copied from the virocyte's genome, and switches to the virus mode. In a
+     * campaign level the victim also changes sides: it now belongs to whoever planted the virus.
      */
     private fun infect(i: Int) {
         val c = world.cells
@@ -224,6 +225,7 @@ internal class Behaviors(val world: World) {
         forEachTouching(i) { j ->
             if (c.organism[j] != c.organism[i] && !isProtected(j) && c.type[j] != VIROCYTE && world.rng.chance(chance)) {
                 world.infect(j, world.genomes[c.genome[i]], virusMode)
+                c.flags[j] = (c.flags[j] and Cells.FLAG_PLAYER.inv()) or (c.flags[i] and Cells.FLAG_PLAYER)
             }
         }
     }

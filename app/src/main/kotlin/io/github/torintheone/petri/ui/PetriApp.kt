@@ -102,7 +102,7 @@ fun PetriApp(viewModel: PetriViewModel) {
     }
 }
 
-/** The tab's screen, with short notes (saved, loaded, errors) popping up at its bottom. */
+/** The tab's screen, with short notes (saved, loaded, errors) popping up at its bottom and achievements at its top. */
 @Composable
 private fun TabContent(tab: Tab, viewModel: PetriViewModel, modifier: Modifier) {
     val snackbar = remember { SnackbarHostState() }
@@ -122,6 +122,13 @@ private fun TabContent(tab: Tab, viewModel: PetriViewModel, modifier: Modifier) 
             Tab.CAMPAIGN -> CampaignScreen(viewModel, Modifier.fillMaxSize())
         }
         LevelDialogs(viewModel)
+        AchievementBanner(
+            viewModel = viewModel,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        )
         SnackbarHost(
             hostState = snackbar,
             modifier = Modifier

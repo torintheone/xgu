@@ -27,6 +27,7 @@ internal class Mutations(private val world: World) {
                 val slot = c.genome[i]
                 val mutated = Mutator.mutate(world.genomes[slot], c.mode[i], rng, s)
                 world.setGenome(i, world.genomes.slotFor(mutated, parentId = world.genomes.id(slot)))
+                world.mutationCount++
             }
         }
     }

@@ -95,6 +95,20 @@ class World(
     var eventSerial: Long = 0L
         private set
 
+    // What has happened in this dish since it was made or loaded, for the achievements; not part of a saved dish.
+
+    /** Cells a virus has infected. */
+    var infectionCount: Long = 0L
+        private set
+
+    /** Pairs of gametes that have fused. */
+    var fusionCount: Long = 0L
+        private set
+
+    /** Genomes radiation has changed. */
+    var mutationCount: Long = 0L
+        internal set
+
     /** Most cells the dish may hold now. */
     internal val cellLimit: Int get() = if (previewCellLimit > 0) previewCellLimit else settings.maxCells
 
@@ -105,6 +119,7 @@ class World(
     private val divisions = Divisions(this)
     private val mutations = Mutations(this)
     private val referee = Referee(this)
+    internal val organisms = Organisms(this)
     internal val foodGrid = SpatialGrid()
 
     val ageHours: Double get() = stepCount * SimConfig.STEP_HOURS
@@ -112,6 +127,16 @@ class World(
     val foodCount: Int get() = food.count
     val speciesCount: Int get() = genomes.liveCount
     val dishRadius: Float get() = settings.dishRadiusUm
+
+    /** Cells in the biggest organism of the dish: live cells held together by bonds. */
+    fun largestOrganism(): Int = organisms.largest(playerOnly = false)
+
+    /** How many different cell types live in the dish. */
+    fun cellTypeCount(): Int {
+        var seen = 0
+        for (i in 0 until cells.count) if (!isDead(i)) seen = seen or (1 shl cells.type[i])
+        return Integer.bitCount(seen)
+    }
 
     // ---- Simulation ----
 
@@ -451,6 +476,7 @@ class World(
         val infected = victim.copy(modes = modes)
         if (infected != victim) setGenome(j, genomes.slotFor(infected, parentId = genomes.id(slot)))
         setMode(j, start)
+        infectionCount++
     }
 
     /**
@@ -480,6 +506,7 @@ class World(
         // The partner is used up: nothing of it is left to become food.
         cells.mass[j] = 0f
         kill(j)
+        fusionCount++
     }
 
     /** Adds a bond; returns its id or −1 when a cell already has [Mode.MAX_BONDS] bonds or the pool is full. */

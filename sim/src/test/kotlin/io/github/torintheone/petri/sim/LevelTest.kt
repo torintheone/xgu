@@ -196,4 +196,29 @@ class LevelTest {
         assertEquals(LevelOutcome.PLAYING, world.level!!.status.outcome)
         assertEquals(5, world.level!!.plantingsLeft)
     }
+
+    @Test
+    fun `a virus brings its victims over to whoever planted it`() {
+        // High salinity halves upkeep, so the expensive virocytes live through the test.
+        val world = World(SubstrateSettings(foodRate = 0f, lightBrightness = 0f, aging = false, corpsesBecomeFood = false, salinity = 1f), 3L)
+        val virus = genome(
+            0,
+            0 to { m -> m.copy(cellType = CellType.VIROCYTE, splitMass = Mode.SPLIT_NEVER, virusMode = 5) },
+            5 to { m -> m.copy(splitMass = Mode.SPLIT_NEVER) },
+        )
+        val mine = world.indexOfUid(world.addCell(virus, 0f, 0f, angle = 0f, mass = 3f))
+        world.cells.flags[mine] = world.cells.flags[mine] or Cells.FLAG_PLAYER
+        val rivalVictim = world.addCell(loner, 23f, 0f, angle = 0f, mass = 3f)
+        world.addCell(virus, 300f, 0f, angle = 0f, mass = 3f)
+        val myVictimIndex = world.indexOfUid(world.addCell(loner, 323f, 0f, angle = 0f, mass = 3f))
+        world.cells.flags[myVictimIndex] = world.cells.flags[myVictimIndex] or Cells.FLAG_PLAYER
+        val myVictim = world.cells.uid[myVictimIndex]
+        world.stepHours(4.0)
+
+        fun isPlayers(uid: Int) = world.cells.flags[world.indexOfUid(uid)] and Cells.FLAG_PLAYER != 0
+        assertEquals(5, world.cellInfo(rivalVictim)!!.mode, "infected")
+        assertTrue(isPlayers(rivalVictim), "the player's virus made the rival cell the player's")
+        assertEquals(5, world.cellInfo(myVictim)!!.mode, "infected")
+        assertFalse(isPlayers(myVictim), "a rival virus took the player's cell")
+    }
 }

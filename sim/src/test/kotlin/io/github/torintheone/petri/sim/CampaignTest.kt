@@ -38,6 +38,31 @@ class CampaignTest {
     private val nearLight = listOf(0f to 330f, -150f to 260f, 150f to 260f)
     private val smallDish = listOf(-100f to -80f, 100f to -80f, 0f to 120f)
     private val inBottomZone = listOf(0f to -350f, -60f to -330f, 60f to -330f, 0f to -280f)
+    private val lowInRaftZone = listOf(0f to -35f, -30f to -25f, 30f to -25f)
+    private val highInRaftZone = listOf(0f to 95f, -30f to 90f, 30f to 90f)
+
+    /** Built in the full editor as the hint says: a phagocyte buds a lipase cell glued to it, then splits into free seeds. */
+    private val lipaseBuds = genome {
+        it[0] = it[0].copy(makeAdhesin = true, child1Mode = 1, child2Mode = 2)
+        it[1] = it[1].copy(child1Mode = 0, child2Mode = 0, child2KeepBonds = false)
+        it[2] = it[2].copy(cellType = CellType.SECROCYTE, secretion = Substance.LIPASE, secretionIntensity = 1f, splitMass = Mode.SPLIT_NEVER)
+    }
+
+    /** Built in the simple editor: glued phagocytes; child 2 a new kind, a lipocyte that does not divide. */
+    private val fatColony = genome {
+        it[0] = it[0].copy(makeAdhesin = true, child2Mode = 1)
+        it[1] = it[1].copy(cellType = CellType.LIPOCYTE, splitMass = Mode.SPLIT_NEVER)
+    }
+
+    /**
+     * Built in the simple editor: kind 1, a glued photocyte, splits into two of kind 2; kind 2, also a glued
+     * photocyte, into kind 1 and kind 3, a bubble that does not divide, its density lowered a few steps.
+     */
+    private val raft = genome {
+        it[0] = it[0].copy(cellType = CellType.PHOTOCYTE, makeAdhesin = true, child1Mode = 1, child2Mode = 1)
+        it[1] = it[1].copy(cellType = CellType.PHOTOCYTE, makeAdhesin = true, child1Mode = 0, child2Mode = 2)
+        it[2] = it[2].copy(cellType = CellType.BUOYOCYTE, splitMass = Mode.SPLIT_NEVER, density = ProgrammableValue.constant(0.3f))
+    }
 
     @Test
     fun `1-1 phagocytes fill the small dish`() = assertWon(play("1-1", Genome.default(), smallDish))
@@ -94,6 +119,39 @@ class CampaignTest {
     fun `4-3 photocytes win the crowded dish`() = assertWon(play("4-3", photocytes, nearLight + listOf(0f to 150f)))
 
     @Test
+    fun `5-1 lipase opens the coated food, plain phagocytes starve`() {
+        assertWon(play("5-1", lipaseBuds, smallDish))
+        assertEquals(LevelOutcome.LOST, play("5-1", Genome.default(), smallDish).outcome)
+    }
+
+    @Test
+    fun `5-2 stores of fat outlast the famine`() {
+        assertWon(play("5-2", fatColony, smallDish))
+        assertEquals(LevelOutcome.LOST, play("5-2", Genome.default(), smallDish).outcome)
+    }
+
+    @Test
+    fun `5-3 a raft stays in the light, photocytes sink`() {
+        assertWon(play("5-3", raft, lowInRaftZone))
+        assertWon(play("5-3", raft, highInRaftZone))
+        assertEquals(LevelOutcome.LOST, play("5-3", photocytes, highInRaftZone).outcome)
+        assertEquals(LevelOutcome.LOST, play("5-3", colony, highInRaftZone).outcome)
+    }
+
+    @Test
+    fun `6-1 stores outlast a famine under radiation`() {
+        assertWon(play("6-1", fatColony, smallDish))
+        assertEquals(LevelOutcome.LOST, play("6-1", Genome.default(), smallDish).outcome)
+    }
+
+    @Test
+    fun `6-2 a raft wins the last level, photocytes sink`() {
+        assertWon(play("6-2", raft, lowInRaftZone + listOf(0f to 30f)))
+        assertEquals(LevelOutcome.LOST, play("6-2", photocytes, highInRaftZone + listOf(0f to 60f)).outcome)
+        assertEquals(LevelOutcome.LOST, play("6-2", Genome.default(), lowInRaftZone + listOf(0f to 30f)).outcome)
+    }
+
+    @Test
     fun `the hints of the first chapters lead to a win`() {
         // 1-3: only «Потомки склеены» switched on for photocytes, nothing turned.
         val gluedPhotocytes = genome { it[0] = it[0].copy(cellType = CellType.PHOTOCYTE, makeAdhesin = true) }
@@ -115,13 +173,16 @@ class CampaignTest {
 
     @Test
     fun `the campaign is in order`() {
-        assertEquals(4, Campaign.chapters.size)
-        assertTrue(Campaign.chapters.all { it.size == 3 })
+        assertEquals(listOf(3, 3, 3, 3, 3, 2), Campaign.chapters.map { it.size })
         val ids = Campaign.levels.map { it.id }
         assertEquals(ids.toSet().size, ids.size, "ids are unique")
+        Campaign.chapters.forEachIndexed { chapter, levels ->
+            levels.forEachIndexed { k, level -> assertEquals("${chapter + 1}-${k + 1}", level.id) }
+        }
         assertEquals("1-2", Campaign.next("1-1")?.id)
         assertEquals("2-1", Campaign.next("1-3")?.id)
-        assertNull(Campaign.next("4-3"))
+        assertEquals("5-1", Campaign.next("4-3")?.id)
+        assertNull(Campaign.next("6-2"))
         assertNotNull(Campaign.level("3-2"))
         for (level in Campaign.levels) {
             val radius = level.settings.dishRadiusUm

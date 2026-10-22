@@ -4,10 +4,12 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,12 +19,14 @@ import androidx.lifecycle.viewModelScope
 import io.github.torintheone.petri.audio.MusicPlayer
 import io.github.torintheone.petri.audio.Sound
 import io.github.torintheone.petri.audio.SoundEffects
+import io.github.torintheone.petri.data.AchievementStore
 import io.github.torintheone.petri.data.CampaignProgress
 import io.github.torintheone.petri.data.DishEntry
 import io.github.torintheone.petri.data.GenbankEntry
 import io.github.torintheone.petri.data.Storage
 import io.github.torintheone.petri.render.DishCamera
 import io.github.torintheone.petri.render.DishGestures
+import io.github.torintheone.petri.sim.Achievement
 import io.github.torintheone.petri.sim.Campaign
 import io.github.torintheone.petri.sim.CellType
 import io.github.torintheone.petri.sim.DishCodec
@@ -161,6 +165,24 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     /** A level was just started: verdicts left over from the dish before are ignored until the new one speaks. */
     private var freshRun = false
 
+    // ---- Achievements ----
+
+    private val achievementStore = AchievementStore(application)
+    private val achievementBook = achievementStore.load()
+
+    /** Progress of every achievement, as the screens show it. */
+    val achievementProgress: SnapshotStateMap<Achievement, Int> = mutableStateMapOf()
+
+    /** Achievements just earned, announced one after another at the top of the screen. */
+    val achievementNews = mutableStateListOf<Achievement>()
+
+    /** The campaign tab shows the achievements instead of the levels. */
+    var showAchievements by mutableStateOf(false)
+
+    /** Progress has grown since it was last written down, and when that was. */
+    private var achievementsUnsaved = false
+    private var achievementsSavedAt = 0L
+
     /** The tab on screen; kept here so that it survives rotation and a launch request can switch it. */
     var tab by mutableStateOf(Tab.MICROSCOPE)
 
@@ -239,8 +261,13 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
             }
         }.distinctUntilChanged()
         for (level in Campaign.levels) progress.stars(level.id).takeIf { it > 0 }?.let { stars[level.id] = it }
+        // Levels won before there were achievements count too, without a fanfare.
+        achievementBook.onCampaignProgress(stars)
+        for (achievement in Achievement.entries) achievementProgress[achievement] = achievementBook.progress(achievement)
+        if (achievementBook.takeChanged()) achievementStore.save(achievementBook)
         viewModelScope.launch { restore() }
         viewModelScope.launch { watchLevel() }
+        viewModelScope.launch { watchAchievements() }
     }
 
     /** Brings back the dish and genome from the last autosave, or starts a fresh dish. */
@@ -351,8 +378,8 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
      * the middle of the dish, with the graph), [EXTRA_SPEED] (a speed of «Наблюдение»), [EXTRA_SPEEDS]
      * (the choice of speeds open), [EXTRA_EDITOR] («simple» or «full» genome editor, for this run only),
      * [EXTRA_LEVEL] (a campaign level to start), [EXTRA_BRIEFING] (a level whose description to open) and
-     * [EXTRA_PLANT] (cells of the edited genome to plant, «x,y/x,y» in µm). The screenshot script
-     * (scripts/screenshots.sh) uses them.
+     * [EXTRA_PLANT] (cells of the edited genome to plant, «x,y/x,y» in µm) and [EXTRA_ACHIEVEMENTS] (the list of
+     * achievements, closing a level's result). The screenshot script (scripts/screenshots.sh) uses them.
      */
     fun handleLaunch(intent: Intent?) {
         val extras = intent?.extras ?: return
@@ -364,6 +391,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         val look = extras.getString(EXTRA_EDITOR)
         val levelToStart = extras.getString(EXTRA_LEVEL)?.let(Campaign::level)
         val describe = extras.getString(EXTRA_BRIEFING)?.let(Campaign::level)
+        val achievements = extras.getBoolean(EXTRA_ACHIEVEMENTS, false)
         val plantAt = extras.getString(EXTRA_PLANT)?.split('/')?.mapNotNull { pair ->
             val numbers = pair.split(',').mapNotNull { it.trim().toFloatOrNull() }
             if (numbers.size == 2) numbers[0] to numbers[1] else null
@@ -380,6 +408,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
             }
             preset?.let { editor.load(it.genome(getApplication<Application>().getString(it.title))) }
             describe?.let { briefing = it }
+            if (achievements) {
+                levelResult = null
+                openAchievements()
+            }
             for ((x, y) in plantAt) plant(x, y)
             if (inspect) {
                 tool = Tool.DIAGNOSTICS
@@ -396,7 +428,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     fun onAppVisible(visible: Boolean) {
         runner.isPaused = !visible
         music.setVisible(visible)
-        if (!visible) autosave()
+        if (!visible) {
+            autosave()
+            saveAchievements()
+        }
     }
 
     fun changeMusicOn(on: Boolean) {
@@ -487,7 +522,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         if (tool != Tool.TWEEZERS) return
         runner.post { world ->
             val uid = world.cellAt(x, y, slack)
-            if (uid != 0) world.drag(uid, x, y)
+            if (uid != 0) {
+                world.drag(uid, x, y)
+                viewModelScope.launch { earn(achievementBook.onDone(Achievement.TWEEZERS)) }
+            }
         }
     }
 
@@ -507,6 +545,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         runner.selectedUid = uid
         camera.followUid = uid
         following = uid != 0
+        if (uid != 0) earn(achievementBook.onDone(Achievement.DIAGNOSTICS))
     }
 
     fun closeDiagnostics() {
@@ -548,6 +587,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         viewModelScope.launch {
             val saved = withContext(Dispatchers.IO) { runCatching { storage.saveGenome(clean, genome) }.isSuccess }
             say(if (saved) R.string.msg_genome_saved else R.string.msg_save_failed, clean)
+            if (saved) earn(achievementBook.onDone(Achievement.GENOME_SAVED))
             refreshGenbank()
         }
     }
@@ -694,6 +734,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         val level = activeLevel
         if (level != null && plantingsUsed != null) progress.plantingsUsed = plantingsUsed
         sounds.play(if (result == PlantResult.PLANTED) Sound.PLANT else Sound.DENY)
+        if (result == PlantResult.PLANTED) earn(achievementBook.onPlanted(genome))
         when (result) {
             PlantResult.PLANTED, PlantResult.NO_ROOM -> Unit
             PlantResult.NO_PLANTINGS_LEFT -> say(R.string.msg_no_plantings)
@@ -809,11 +850,63 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
                 progress.recordWin(level.id, status.stars)
                 stars[level.id] = maxOf(stars[level.id] ?: 0, status.stars)
                 sounds.play(Sound.WIN)
+                earn(achievementBook.onLevelWon(level, status, stars))
             } else {
                 sounds.play(Sound.LOSE)
             }
             levelResult = status
         }
+    }
+
+    // ---- Achievements ----
+
+    /** Follows the numbers of the dish for the achievements. */
+    private suspend fun watchAchievements() {
+        restoreDone.await()
+        while (true) {
+            earn(achievementBook.onStats(runner.stats))
+            delay(ACHIEVEMENT_REFRESH_MS)
+        }
+    }
+
+    /**
+     * Queues [earned] achievements to be announced and shows the new progress. It is written down at once when
+     * something is earned, otherwise now and then, when the app is hidden and when it closes.
+     */
+    private fun earn(earned: List<Achievement>) {
+        achievementNews += earned
+        if (achievementBook.takeChanged()) {
+            for (achievement in Achievement.entries) {
+                val value = achievementBook.progress(achievement)
+                if (achievementProgress[achievement] != value) achievementProgress[achievement] = value
+            }
+            achievementsUnsaved = true
+        }
+        if (earned.isNotEmpty() || SystemClock.elapsedRealtime() - achievementsSavedAt >= ACHIEVEMENT_SAVE_MS) saveAchievements()
+    }
+
+    private fun saveAchievements() {
+        if (!achievementsUnsaved) return
+        achievementStore.save(achievementBook)
+        achievementsUnsaved = false
+        achievementsSavedAt = SystemClock.elapsedRealtime()
+    }
+
+    /** The banner shows the first queued achievement: its chime plays. */
+    fun onAchievementShown() {
+        sounds.play(Sound.ACHIEVEMENT)
+    }
+
+    /** The banner of the first queued achievement is done. */
+    fun dismissAchievement() {
+        if (achievementNews.isNotEmpty()) achievementNews.removeAt(0)
+    }
+
+    /** Opens the achievements in the campaign tab; the queued announcements are no longer needed. */
+    fun openAchievements() {
+        achievementNews.clear()
+        showAchievements = true
+        tab = Tab.CAMPAIGN
     }
 
     // ---- Messages ----
@@ -831,6 +924,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     }
 
     override fun onCleared() {
+        saveAchievements()
         music.release()
         sounds.release()
         runner.close()
@@ -847,6 +941,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         const val EXTRA_LEVEL = "petri.level"
         const val EXTRA_BRIEFING = "petri.briefing"
         const val EXTRA_PLANT = "petri.plant"
+        const val EXTRA_ACHIEVEMENTS = "petri.achievements"
         private const val EDITOR_SIMPLE = "simple"
         private const val EDITOR_FULL = "full"
 
@@ -863,6 +958,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
 
         private const val STATS_REFRESH_MS = 100L
         private const val LEVEL_REFRESH_MS = 250L
+        private const val ACHIEVEMENT_REFRESH_MS = 500L
+
+        /** Progress that earns nothing yet is written down at most this often. */
+        private const val ACHIEVEMENT_SAVE_MS = 30_000L
         private val ALL_TYPES = CellType.entries.toSet()
         private const val HISTORY_REFRESH_MS = 500L
         private const val SPEED_SAMPLE_MS = 500L

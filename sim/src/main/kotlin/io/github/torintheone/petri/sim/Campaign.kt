@@ -1,8 +1,8 @@
 package io.github.torintheone.petri.sim
 
 /**
- * The campaign: four chapters of three levels that teach the game step by step, from the first planted cell to
- * evolution. CampaignTest wins every level with a known genome, so none is impossible.
+ * The campaign: six chapters that teach the game step by step, from the first planted cell to evolution and the
+ * tricks of survival. CampaignTest wins every level with a known genome, so none is impossible.
  */
 object Campaign {
     private val DISH = SubstrateSettings()
@@ -10,6 +10,12 @@ object Campaign {
     /** Above the middle of the dish, where the light source starts. */
     private val TOP_ZONE = Zone(0f, 380f, 90f)
     private val BOTTOM_ZONE = Zone(0f, -350f, 110f)
+
+    /** A little above the middle: high enough for a raft to start growing, too low for photocytes alone. */
+    private val RAFT_ZONE = Zone(0f, 30f, 70f)
+
+    /** Heavy cells sink fast in a thin medium; the light is a narrow beam from the top. */
+    private val DEEP = DISH.copy(gravity = 1f, viscosity = 15f, lightBrightness = 1f, lightWidth = 0.5f)
 
     val chapters: List<List<Level>> = listOf(
         listOf(
@@ -166,6 +172,72 @@ object Campaign {
                 par = 60f,
                 plantings = 4,
                 seed = 403L,
+            ),
+        ),
+        listOf(
+            // Every crumb is coated: phagocytes starve unless a secrocyte dissolves the coats with lipase.
+            Level(
+                id = "5-1",
+                settings = DISH.copy(dishDiameterMm = 0.6f, foodRate = 0.4f, foodCoat = 1f, lightBrightness = 0f, viscosity = 25f),
+                food = 0.5f,
+                goals = listOf(Goal.Population(30)),
+                hours = 48f,
+                par = 20f,
+                plantings = 3,
+                allowedTypes = setOf(CellType.PHAGOCYTE, CellType.SECROCYTE),
+                seed = 501L,
+            ),
+            // Food only at the start: cells that store it in lipocytes outlast the famine.
+            Level(
+                id = "5-2",
+                settings = DISH.copy(dishDiameterMm = 0.6f, foodRate = 0f, lightBrightness = 0f),
+                food = 1f,
+                goals = listOf(Goal.Survive(120f, 20)),
+                hours = 120f,
+                par = 120f,
+                plantings = 3,
+                allowedTypes = setOf(CellType.PHAGOCYTE, CellType.LIPOCYTE),
+                seed = 502L,
+            ),
+            // Photocytes sink out of the light and die; a raft held up by bubbles stays in it.
+            Level(
+                id = "5-3",
+                settings = DEEP.copy(foodRate = 0f),
+                food = 0f,
+                goals = listOf(Goal.TypeCount(CellType.PHOTOCYTE, 40), Goal.Survive(36f, 40)),
+                hours = 48f,
+                par = 36f,
+                plantings = 3,
+                plantZone = RAFT_ZONE,
+                allowedTypes = setOf(CellType.PHOTOCYTE, CellType.BUOYOCYTE),
+                seed = 503L,
+            ),
+        ),
+        listOf(
+            // The famine again, under radiation: the stores must last, and the mutants count.
+            Level(
+                id = "6-1",
+                settings = DISH.copy(dishDiameterMm = 0.6f, foodRate = 0f, lightBrightness = 0f, radiation = 0.08f),
+                food = 1f,
+                goals = listOf(Goal.Survive(120f, 20), Goal.Species(3)),
+                hours = 120f,
+                par = 120f,
+                plantings = 3,
+                allowedTypes = setOf(CellType.PHAGOCYTE, CellType.LIPOCYTE),
+                seed = 601L,
+            ),
+            // The last level: depth, a narrow beam, grazers and radiation together.
+            Level(
+                id = "6-2",
+                settings = DEEP.copy(foodRate = 0.2f, radiation = 0.02f),
+                food = 0.3f,
+                placements = listOf(Placement(Rivals.grazers(), count = 30)),
+                goals = listOf(Goal.TypeCount(CellType.PHOTOCYTE, 120), Goal.Majority(0.6f, 150), Goal.Survive(60f, 150)),
+                hours = 80f,
+                par = 60f,
+                plantings = 4,
+                plantZone = RAFT_ZONE,
+                seed = 602L,
             ),
         ),
     )

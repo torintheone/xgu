@@ -25,6 +25,14 @@ data class SimStats(
     val selected: CellInfo? = null,
     /** The verdict on the campaign level played in the dish, or null outside the campaign. */
     val level: LevelStatus? = null,
+    /** Cells in the biggest organism; counted a few times a second. */
+    val largestOrganism: Int = 0,
+    /** Different cell types alive; counted a few times a second. */
+    val cellTypes: Int = 0,
+    /** Infections by viruses, fusions of gametes and mutations since the dish was made or loaded. */
+    val infections: Long = 0L,
+    val fusions: Long = 0L,
+    val mutations: Long = 0L,
 ) {
     companion object {
         val EMPTY = SimStats(ageHours = 0.0, cellCount = 0, foodCount = 0)
@@ -212,6 +220,8 @@ class SimulationRunner(world: World) : AutoCloseable {
         back.serial = ++publishCount
         back.publishedNanos = System.nanoTime()
         snapshots.publish()
+        val last = stats
+        val census = publishCount % CENSUS_EVERY == 0L
         stats = SimStats(
             ageHours = world.ageHours,
             cellCount = world.cellCount,
@@ -219,6 +229,11 @@ class SimulationRunner(world: World) : AutoCloseable {
             speciesCount = world.speciesCount,
             selected = world.cellInfo(selectedUid),
             level = world.level?.status,
+            largestOrganism = if (census) world.largestOrganism() else last.largestOrganism,
+            cellTypes = if (census) world.cellTypeCount() else last.cellTypes,
+            infections = world.infectionCount,
+            fusions = world.fusionCount,
+            mutations = world.mutationCount,
         )
         val stamp = world.history.size * 1_000_003L + world.stepCount / World.HISTORY_STEPS
         if (stamp != historyStamp) {
@@ -232,6 +247,9 @@ class SimulationRunner(world: World) : AutoCloseable {
         const val THREAD_NAME = "petri-simulation"
         const val NANOS_PER_SECOND = 1_000_000_000L
         const val FRAME_NANOS = NANOS_PER_SECOND / SimConfig.PUBLISH_RATE_HZ
+
+        /** Organisms and cell types are counted on every this many snapshots. */
+        const val CENSUS_EVERY = 15L
         const val OBSERVE_STEPS_PER_NANO =
             SimConfig.OBSERVE_HOURS_PER_SECOND / SimConfig.STEP_HOURS / NANOS_PER_SECOND
     }

@@ -54,8 +54,10 @@ shoot 01-microscope 3
 open_app --es petri.tab microscope --ez petri.speeds true --ef petri.speed 0.25
 shoot 02-microscope-speeds 3
 
+# Diagnostics on a cell; the first look at a cell earns an achievement, whose note shows for a few seconds.
 open_app --ez petri.inspect true --ef petri.speed 1.0
-shoot 03-microscope-cell 4
+shoot 17-achievement 1.5
+shoot 03-microscope-cell 5
 
 # The simple genome editor: the cell, then the picture of its division.
 open_app --es petri.tab genome --es petri.preset SWIMMER --es petri.editor simple
@@ -95,6 +97,10 @@ open_app --es petri.level 2-2 --es petri.preset SWIMMER --es petri.plant 0,-350/
 shoot 15-level 3
 open_app --ef petri.speed 4.0
 shoot 16-level-result 10
+
+# The achievements, with the ones the run so far has earned.
+open_app --ez petri.achievements true
+shoot 18-achievements 3
 
 demo exit
 

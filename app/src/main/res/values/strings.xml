@@ -478,7 +478,7 @@
     <!-- Campaign. -->
     <string name="campaign_title">Опыты</string>
     <string name="campaign_stars">%1$d из %2$d</string>
-    <string name="campaign_intro">Двенадцать опытов шаг за шагом учат игре: от первой посаженной клетки до эволюции. Следующий опыт открывается, когда пройден предыдущий; за быстрое решение — больше звёзд.</string>
+    <string name="campaign_intro">Семнадцать опытов шаг за шагом учат игре: от первой посаженной клетки до эволюции и хитростей выживания. Следующий опыт открывается, когда пройден предыдущий; за быстрое решение — больше звёзд.</string>
     <string name="campaign_chapter">Глава %1$d · %2$s</string>
     <string name="campaign_locked">Откроется после опыта %1$s</string>
     <string name="campaign_current">Идёт сейчас</string>
@@ -548,6 +548,11 @@
     <string name="cond_bright_light">Свет яркий</string>
     <string name="cond_even_light">Свет ровный по всей чашке</string>
     <string name="cond_gravity">Сила тяжести: клетки и пища тонут</string>
+    <string name="cond_thin_medium">Среда жидкая: тяжёлое тонет быстро, лёгкое быстро всплывает</string>
+    <string name="cond_narrow_light">Свет падает сверху узким лучом</string>
+    <string name="cond_coat">Пища в оболочке: съесть её можно, только когда липаза растворит оболочку</string>
+    <string name="cond_food_stock">В начале пищи вдоволь</string>
+    <string name="cond_max_cells">В чашке помещается не больше %1$d клеток</string>
     <string name="cond_radiation">Радиация: %1$d %%</string>
     <string name="cond_deadly_walls">Стенки убивают клетки</string>
     <string name="cond_rivals">В чашке уже живут чужие клетки</string>
@@ -559,12 +564,61 @@
     <string name="msg_level_over">Опыт уже окончен</string>
     <string name="msg_level_locked">Во время опыта этого сделать нельзя. Выйти из опыта можно на вкладке «Кампания».</string>
 
+    <!-- Achievements. -->
+    <string name="campaign_levels">Опыты</string>
+    <string name="campaign_achievements">Достижения · %1$d/%2$d</string>
+    <string name="achievements_intro">Достижения даются за опыты кампании, за жизнь в чашке и за открытия. Серые ещё впереди; у тех, что набираются постепенно, видно, сколько уже сделано.</string>
+    <string name="achievements_campaign">Кампания</string>
+    <string name="achievements_dish">Чашка</string>
+    <string name="achievements_discovery">Открытия</string>
+    <string name="achievement_earned">Новое достижение</string>
+    <string name="ach_first_level">Первый опыт</string>
+    <string name="ach_first_level_text">Пройдите любой опыт кампании.</string>
+    <string name="ach_three_stars">Отличник</string>
+    <string name="ach_three_stars_text">Пройдите опыт на три звезды.</string>
+    <string name="ach_one_planting">С одной клетки</string>
+    <string name="ach_one_planting_text">Пройдите опыт, посадив всего одну клетку.</string>
+    <string name="ach_chapter">Глава позади</string>
+    <string name="ach_chapter_text">Пройдите все опыты одной главы.</string>
+    <string name="ach_campaign">Выпускник</string>
+    <string name="ach_campaign_text">Пройдите все опыты кампании.</string>
+    <string name="ach_all_stars">Звездочёт</string>
+    <string name="ach_all_stars_text">Соберите все звёзды кампании.</string>
+    <string name="ach_cells_100">Сотня</string>
+    <string name="ach_cells_100_text">Пусть в чашке живут 100 клеток сразу.</string>
+    <string name="ach_cells_1000">Тысяча</string>
+    <string name="ach_cells_1000_text">Пусть в чашке живут 1000 клеток сразу.</string>
+    <string name="ach_organism">Многоклеточный</string>
+    <string name="ach_organism_text">Вырастите организм из 50 склеенных клеток.</string>
+    <string name="ach_cell_types">Экосистема</string>
+    <string name="ach_cell_types_text">Пусть в чашке живут клетки пяти разных типов.</string>
+    <string name="ach_species">Разнообразие</string>
+    <string name="ach_species_text">Пусть в чашке живут пять видов сразу — новые виды дают мутации.</string>
+    <string name="ach_old_dish">Долгожитель</string>
+    <string name="ach_old_dish_text">Пусть чашка проживёт 1000 часов игрового времени.</string>
+    <string name="ach_genome_saved">Конструктор</string>
+    <string name="ach_genome_saved_text">Сохраните геном в генбанк.</string>
+    <string name="ach_tweezers">Ловкие руки</string>
+    <string name="ach_tweezers_text">Передвиньте клетку пинцетом.</string>
+    <string name="ach_diagnostics">Под лупой</string>
+    <string name="ach_diagnostics_text">Выберите клетку диагностикой и посмотрите, что у неё внутри.</string>
+    <string name="ach_all_types">Коллекционер</string>
+    <string name="ach_all_types_text">Посадите клетки каждого типа — хотя бы по разу, можно в разных геномах.</string>
+    <string name="ach_virus">Эпидемия</string>
+    <string name="ach_virus_text">Пусть вироцит заразит чужую клетку.</string>
+    <string name="ach_fusion">Слияние</string>
+    <string name="ach_fusion_text">Пусть две гаметы сольются в одну клетку.</string>
+    <string name="ach_mutant">Мутант</string>
+    <string name="ach_mutant_text">Дождитесь, пока радиация изменит геном клетки.</string>
+
     <!-- Chapter names. -->
     <string-array name="chapter_titles">
         <item>Первые шаги</item>
         <item>Тело и движение</item>
         <item>Испытания</item>
         <item>Эволюция</item>
+        <item>Хитрости</item>
+        <item>Мастерство</item>
     </string-array>
 
     <!-- Level names, stories and hints, in the order of Campaign.levels. -->
@@ -581,6 +635,11 @@
         <item>Мутации</item>
         <item>Радиация</item>
         <item>Экосистема</item>
+        <item>Оболочка</item>
+        <item>Голод</item>
+        <item>Плот</item>
+        <item>Зима</item>
+        <item>Последний опыт</item>
     </string-array>
     <string-array name="level_stories">
         <item>Маленькая чашка, пищи вдоволь. Посадите фагоциты и дайте им время: клетка, набрав массу, делится надвое, а её потомки — снова.</item>
@@ -595,6 +654,11 @@
         <item>Радиация понемногу меняет геномы, и каждый изменённый геном — новый вид. Дождитесь, пока среди ваших клеток будет шесть видов сразу.</item>
         <item>Сильное излучение убивает клетки и портит геномы. Через 48 часов у вас должно остаться не меньше ста клеток.</item>
         <item>Всё сразу: соседи-фагоциты, медленные фотоциты, мало пищи и мутации. Вырастите 300 клеток и станьте большинством.</item>
+        <item>Вся пища в этой чашке покрыта прочной оболочкой, и фагоциты не могут её съесть. Растворяет оболочку липаза — её выделяет секроцит. Вырастите 30 клеток.</item>
+        <item>Пищи сейчас вдоволь, но новой не будет, а света нет. Через 120 часов у вас должно остаться не меньше 20 живых клеток.</item>
+        <item>Среда здесь жидкая, есть сила тяжести, а свет падает только сверху. Фотоциты быстро тонут и гибнут в темноте. Сделайте так, чтобы 40 фотоцитов продержались 36 часов.</item>
+        <item>Снова голод, да ещё и слабая радиация. Продержитесь 120 часов, сохранив 20 клеток, — и пусть к концу среди них будет три вида.</item>
+        <item>Всё, чему научили опыты: глубина, узкий луч света, пастбищники на дне и радиация. Вырастите 120 фотоцитов, станьте большинством и продержитесь 60 часов.</item>
     </string-array>
     <string-array name="level_hints">
         <item>Коснитесь чашки — синтезатор посадит клетку. Чтобы ждать меньше, нажмите кнопку скорости в правом нижнем углу и выберите ×4.</item>
@@ -609,5 +673,10 @@
         <item>Мутаций тем больше, чем больше клеток. Подойдут и обычные фагоциты.</item>
         <item>Выживает тот, кто размножается быстрее, чем гибнет. У источника света фотоциты делятся чаще всех.</item>
         <item>Займите свет раньше медленных фотоцитов: посадите свои клетки у светлого пятна на краю чашки.</item>
+        <item>Секроцит есть только в полном редакторе. Режим M1: включите «Делать адгезин», режим потомка 1 — M2, потомка 2 — M3. M2: фагоцит, режим обоих потомков — M1, у потомка 2 выключите «Сохранять связи». M3: секроцит, вещество — липаза, интенсивность на максимум, масса деления — «никогда». Так пары «фагоцит + секроцит» расселятся по чашке.</item>
+        <item>Липоцит — клетка-кладовая: копит втрое больше обычной клетки и делится запасом со склеенными соседями. Включите «Потомки склеены», а потомку 2 дайте новый вид клетки — липоцит, который не делится.</item>
+        <item>Постройте плот. Вид 1: фотоцит, «Потомки склеены», оба потомка — новый вид 2. Вид 2: тоже фотоцит с «Потомки склеены», потомок 1 — вид 1, потомок 2 — новый вид 3. Вид 3: буйоцит, который не делится, с плотностью пузыря на несколько шагов ниже.</item>
+        <item>Запасайте пищу липоцитами, как в опыте «Голод», — новые виды радиация даст сама. Чем больше клеток доживёт до конца, тем больше среди них будет мутантов.</item>
+        <item>Плот из опыта «Плот» справится и здесь: пастбищники тонут и кормятся на дне, а свет наверху достанется вам. Сажайте плоты в голубом круге.</item>
     </string-array>
 </resources>

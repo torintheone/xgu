@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.torintheone.petri.PetriViewModel
 import io.github.torintheone.petri.R
+import io.github.torintheone.petri.sim.Achievement
 import io.github.torintheone.petri.sim.Campaign
 import io.github.torintheone.petri.sim.CellType
 import io.github.torintheone.petri.sim.Goal
@@ -65,7 +66,8 @@ import kotlin.math.roundToInt
 
 /**
  * «Кампания»: the stars earned so far, the level being played, and the chapters with their levels. A level opens
- * once the one before it is won; a tap on an open level shows its description.
+ * once the one before it is won; a tap on an open level shows its description. A switch at the top turns the tab
+ * to the achievements.
  */
 @Composable
 fun CampaignScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
@@ -93,32 +95,60 @@ fun CampaignScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) {
                 )
             }
         }
-        Text(
-            text = stringResource(R.string.campaign_intro),
-            style = MaterialTheme.typography.bodySmall,
-            color = Lab.TextDim,
-            modifier = Modifier.padding(horizontal = 2.dp),
+        val achievements = viewModel.achievementProgress
+        val achieved = Achievement.entries.count { (achievements[it] ?: 0) >= it.target }
+        Segmented(
+            options = listOf(false, true),
+            selected = viewModel.showAchievements,
+            label = { showAchievements ->
+                if (showAchievements) {
+                    stringResource(R.string.campaign_achievements, achieved, Achievement.entries.size)
+                } else {
+                    stringResource(R.string.campaign_levels)
+                }
+            },
+            onSelect = {
+                if (it != viewModel.showAchievements) viewModel.click()
+                viewModel.showAchievements = it
+            },
+            modifier = Modifier.fillMaxWidth(),
         )
-        viewModel.activeLevel?.let { level ->
-            CurrentLevel(
-                level = level,
-                status = viewModel.levelStatus,
-                onMicroscope = { viewModel.tab = Tab.MICROSCOPE },
-                onRestart = viewModel::restartLevel,
-                onLeave = { leaving = true },
+        if (viewModel.showAchievements) {
+            Text(
+                text = stringResource(R.string.achievements_intro),
+                style = MaterialTheme.typography.bodySmall,
+                color = Lab.TextDim,
+                modifier = Modifier.padding(horizontal = 2.dp),
             )
-        }
-        Campaign.chapters.forEachIndexed { chapter, levels ->
-            val title = stringResource(R.string.campaign_chapter, chapter + 1, stringArrayResource(R.array.chapter_titles)[chapter])
-            SectionPanel(title) {
-                for (level in levels) {
-                    LevelRow(
-                        level = level,
-                        stars = viewModel.stars[level.id] ?: 0,
-                        unlocked = viewModel.isUnlocked(level),
-                        playing = viewModel.activeLevel == level,
-                        onClick = { viewModel.briefing = level },
-                    )
+            AchievementList(achievements)
+        } else {
+            Text(
+                text = stringResource(R.string.campaign_intro),
+                style = MaterialTheme.typography.bodySmall,
+                color = Lab.TextDim,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+            viewModel.activeLevel?.let { level ->
+                CurrentLevel(
+                    level = level,
+                    status = viewModel.levelStatus,
+                    onMicroscope = { viewModel.tab = Tab.MICROSCOPE },
+                    onRestart = viewModel::restartLevel,
+                    onLeave = { leaving = true },
+                )
+            }
+            Campaign.chapters.forEachIndexed { chapter, levels ->
+                val title = stringResource(R.string.campaign_chapter, chapter + 1, stringArrayResource(R.array.chapter_titles)[chapter])
+                SectionPanel(title) {
+                    for (level in levels) {
+                        LevelRow(
+                            level = level,
+                            stars = viewModel.stars[level.id] ?: 0,
+                            unlocked = viewModel.isUnlocked(level),
+                            playing = viewModel.activeLevel == level,
+                            onClick = { viewModel.briefing = level },
+                        )
+                    }
                 }
             }
         }
@@ -350,8 +380,9 @@ private fun GoalLines(level: Level, status: LevelStatus, modifier: Modifier = Mo
     }
 }
 
+/** A thin bar filled to [fraction]; green once [done]. */
 @Composable
-private fun ProgressBar(fraction: Float, done: Boolean, modifier: Modifier = Modifier) {
+internal fun ProgressBar(fraction: Float, done: Boolean, modifier: Modifier = Modifier) {
     Canvas(
         modifier
             .fillMaxWidth()
@@ -549,18 +580,23 @@ private fun conditionLines(level: Level): List<String> {
         lines += stringResource(R.string.cond_types, level.allowedTypes.joinToString { typeNames[it.ordinal].lowercase() })
     }
     if (s.dishDiameterMm != usual.dishDiameterMm) lines += stringResource(R.string.cond_dish, decimal(s.dishDiameterMm, 1))
+    if (s.maxCells < usual.maxCells) lines += stringResource(R.string.cond_max_cells, s.maxCells)
+    if (level.food >= FOOD_STOCK) lines += stringResource(R.string.cond_food_stock)
     when {
         s.foodRate <= 0f -> lines += stringResource(R.string.cond_no_food)
         s.foodRate < usual.foodRate -> lines += stringResource(R.string.cond_little_food)
         s.foodRate > usual.foodRate -> lines += stringResource(R.string.cond_much_food)
     }
+    if (s.foodCoat > 0f) lines += stringResource(R.string.cond_coat)
     when {
         s.lightBrightness <= 0f -> lines += stringResource(R.string.cond_no_light)
         s.lightWidth >= 1f -> lines += stringResource(R.string.cond_even_light)
         s.lightBrightness < DIM_LIGHT -> lines += stringResource(R.string.cond_dim_light)
+        s.lightWidth < usual.lightWidth -> lines += stringResource(R.string.cond_narrow_light)
         s.lightBrightness > usual.lightBrightness -> lines += stringResource(R.string.cond_bright_light)
     }
     if (s.gravity > 0f) lines += stringResource(R.string.cond_gravity)
+    if (s.gravity > 0f && s.viscosity < usual.viscosity) lines += stringResource(R.string.cond_thin_medium)
     if (s.radiation > 0f) lines += stringResource(R.string.cond_radiation, (s.radiation * PERCENT).roundToInt())
     if (s.deadlyWalls) lines += stringResource(R.string.cond_deadly_walls)
     if (level.placements.isNotEmpty()) lines += stringResource(R.string.cond_rivals)
@@ -574,6 +610,9 @@ private const val ACCENT_EDGE = 0.6f
 
 /** Below this brightness the description calls the light dim. */
 private const val DIM_LIGHT = 0.4f
+
+/** From this much food at the start (a share of the limit) the description calls it a stock. */
+private const val FOOD_STOCK = 0.8f
 
 private val BADGE = 40.dp
 private val STAR_TINY = 11.dp

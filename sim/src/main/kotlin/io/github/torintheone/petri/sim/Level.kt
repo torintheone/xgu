@@ -114,9 +114,13 @@ data class Level(
 
     /** 3 stars within [par] hours, 2 within twice that, otherwise 1. */
     fun stars(hours: Double): Int = when {
-        hours <= par -> 3
+        hours <= par -> MAX_STARS
         hours <= 2.0 * par -> 2
         else -> 1
+    }
+
+    companion object {
+        const val MAX_STARS = 3
     }
 }
 
@@ -192,8 +196,6 @@ enum class PlantResult {
 internal class Referee(private val world: World) {
     private val typeCounts = IntArray(CellType.entries.size)
     private val genomeSlots = HashSet<Int>()
-    private var parent = IntArray(0)
-    private var componentSize = IntArray(0)
 
     fun judge(session: LevelSession) {
         if (session.status.outcome != LevelOutcome.PLAYING) return
@@ -224,7 +226,7 @@ internal class Referee(private val world: World) {
                     GoalProgress(goal, n.toFloat(), goal.cells.toFloat(), n >= goal.cells)
                 }
                 is Goal.Organism -> {
-                    val n = largestOrganism()
+                    val n = world.organisms.largest(playerOnly = true)
                     GoalProgress(goal, n.toFloat(), goal.cells.toFloat(), n >= goal.cells)
                 }
                 is Goal.Biomass -> GoalProgress(goal, mass.toFloat(), goal.mass, mass >= goal.mass)
@@ -289,9 +291,15 @@ internal class Referee(private val world: World) {
         }
         return if (best == Float.MAX_VALUE) Float.POSITIVE_INFINITY else best
     }
+}
 
-    /** Cells in the biggest group of the player's cells joined by bonds. */
-    private fun largestOrganism(): Int {
+/** Finds organisms: groups of live cells held together by bonds. */
+internal class Organisms(private val world: World) {
+    private var parent = IntArray(0)
+    private var componentSize = IntArray(0)
+
+    /** Cells in the biggest organism of the dish, or of the player's cells only when [playerOnly]. */
+    fun largest(playerOnly: Boolean): Int {
         val c = world.cells
         val b = world.bonds
         val n = c.count
@@ -304,7 +312,7 @@ internal class Referee(private val world: World) {
             if (!b.alive[id]) continue
             val i = b.a[id]
             val j = b.b[id]
-            if (j == Bonds.WALL || !isPlayerAlive(i) || !isPlayerAlive(j)) continue
+            if (j == Bonds.WALL || !counts(i, playerOnly) || !counts(j, playerOnly)) continue
             val ri = root(i)
             val rj = root(j)
             if (ri != rj) parent[ri] = rj
@@ -312,7 +320,7 @@ internal class Referee(private val world: World) {
         componentSize.fill(0, 0, n)
         var best = 0
         for (i in 0 until n) {
-            if (!isPlayerAlive(i)) continue
+            if (!counts(i, playerOnly)) continue
             val r = root(i)
             componentSize[r]++
             if (componentSize[r] > best) best = componentSize[r]
@@ -320,7 +328,8 @@ internal class Referee(private val world: World) {
         return best
     }
 
-    private fun isPlayerAlive(i: Int): Boolean = !world.isDead(i) && world.cells.flags[i] and Cells.FLAG_PLAYER != 0
+    private fun counts(i: Int, playerOnly: Boolean): Boolean =
+        !world.isDead(i) && (!playerOnly || world.cells.flags[i] and Cells.FLAG_PLAYER != 0)
 
     private fun root(start: Int): Int {
         var r = start
