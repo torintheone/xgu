@@ -636,19 +636,27 @@ class World(
             f[o + 3] = if (food.coated[k]) 1f else 0f
         }
 
+        var zones = 0
         val rules = level?.level
-        val zones = buildList {
-            rules?.plantZone?.let { add(it to WorldSnapshot.ZONE_PLANTING) }
-            rules?.goals?.forEach { if (it is Goal.Reach) add(it.zone to WorldSnapshot.ZONE_TARGET) }
-        }.take(WorldSnapshot.MAX_ZONES)
-        zones.forEachIndexed { k, (zone, kind) ->
-            val o = k * WorldSnapshot.ZONE_FLOATS
-            out.zones[o] = zone.x
-            out.zones[o + 1] = zone.y
-            out.zones[o + 2] = zone.radius
-            out.zones[o + 3] = kind
+        if (rules != null) {
+            rules.plantZone?.let { zones = putZone(out, zones, it, WorldSnapshot.ZONE_PLANTING) }
+            for (k in rules.goals.indices) {
+                val goal = rules.goals[k]
+                if (goal is Goal.Reach) zones = putZone(out, zones, goal.zone, WorldSnapshot.ZONE_TARGET)
+            }
         }
-        out.zoneCount = zones.size
+        out.zoneCount = zones
+    }
+
+    /** Writes [zone] as zone number [index] of [out], if there is room; returns the next number. */
+    private fun putZone(out: WorldSnapshot, index: Int, zone: Zone, kind: Float): Int {
+        if (index >= WorldSnapshot.MAX_ZONES) return index
+        val o = index * WorldSnapshot.ZONE_FLOATS
+        out.zones[o] = zone.x
+        out.zones[o + 1] = zone.y
+        out.zones[o + 2] = zone.radius
+        out.zones[o + 3] = kind
+        return index + 1
     }
 
     internal companion object {

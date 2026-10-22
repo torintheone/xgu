@@ -164,6 +164,20 @@ class LevelTest {
     }
 
     @Test
+    fun `a snapshot carries the planting and target zones`() {
+        val world = Campaign.level("2-2")!!.createWorld()
+        val snapshot = WorldSnapshot()
+        world.writeSnapshot(snapshot)
+        assertEquals(2, snapshot.zoneCount)
+        assertEquals(WorldSnapshot.ZONE_PLANTING, snapshot.zones[3])
+        assertEquals(-350f, snapshot.zones[1])
+        assertEquals(WorldSnapshot.ZONE_TARGET, snapshot.zones[WorldSnapshot.ZONE_FLOATS + 3])
+        world.level = null
+        world.writeSnapshot(snapshot)
+        assertEquals(0, snapshot.zoneCount)
+    }
+
+    @Test
     fun `stars follow the par`() {
         val level = level(listOf(Goal.Population(1)))
         assertEquals(3, level.stars(2.0))
