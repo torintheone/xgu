@@ -76,7 +76,25 @@ fun EnvironmentScreen(viewModel: PetriViewModel, modifier: Modifier = Modifier) 
         Eyebrow(stringResource(R.string.tab_environment), Modifier.padding(start = 2.dp, top = 4.dp))
         DishCard(viewModel)
         SettingsEditor(viewModel)
+        SoundSettings(viewModel)
         About(Modifier.padding(top = 6.dp))
+    }
+}
+
+/** Background music: on or off and how loud. */
+@Composable
+private fun SoundSettings(viewModel: PetriViewModel) {
+    EnvSection(R.string.env_sound, R.drawable.ic_music) {
+        SwitchRow(stringResource(R.string.env_music), viewModel.musicOn, viewModel::changeMusicOn)
+        SliderRow(
+            label = stringResource(R.string.env_music_volume),
+            value = viewModel.musicVolume,
+            range = 0f..1f,
+            valueText = stringResource(R.string.percent_value, (viewModel.musicVolume * 100f).roundToInt()),
+            onChange = viewModel::changeMusicVolume,
+            levels = MUSIC_VOLUME_LEVELS,
+            enabled = viewModel.musicOn,
+        )
     }
 }
 
@@ -547,6 +565,9 @@ private fun roundTo(value: Float, step: Int): Int = (value / step).roundToInt() 
 private fun countLevels(range: IntRange): Int = (range.last - range.first) / COUNT_STEP + 1
 
 private const val CHIP_EDGE_ALPHA = 0.6f
+
+/** Music volume in steps of 5 %. */
+private const val MUSIC_VOLUME_LEVELS = 21
 
 /** Counts (cells, food) move in hundreds. */
 private const val COUNT_STEP = 100

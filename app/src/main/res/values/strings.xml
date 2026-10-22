@@ -310,6 +310,9 @@
     <string name="env_deadly_walls">Гибель на краю</string>
     <string name="env_blocked_flagellum_kills">Склеенный жгутик убивает клетку</string>
     <string name="env_reset">Сбросить настройки</string>
+    <string name="env_sound">Звук</string>
+    <string name="env_music">Фоновая музыка</string>
+    <string name="env_music_volume">Громкость музыки</string>
     <string name="dialog_reset_title">Сбросить настройки среды?</string>
     <string name="dialog_reset_text">Все параметры среды вернутся к значениям по умолчанию. Клетки и пища останутся.</string>
     <string name="per_hour_value">%1$d в час</string>

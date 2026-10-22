@@ -1,17 +1,20 @@
 package io.github.torintheone.petri
 
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.torintheone.petri.audio.MusicPlayer
 import io.github.torintheone.petri.data.DishEntry
 import io.github.torintheone.petri.data.GenbankEntry
 import io.github.torintheone.petri.data.Storage
@@ -84,6 +87,21 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     val runner: SimulationRunner
     val camera = DishCamera()
     val editor = GenomeEditor(viewModelScope)
+
+    /** Small choices that outlive the app: music and the editor's look. */
+    private val preferences = application.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    private val music = MusicPlayer(application, viewModelScope).apply {
+        enabled = preferences.getBoolean(KEY_MUSIC, true)
+        volume = preferences.getFloat(KEY_MUSIC_VOLUME, MusicPlayer.DEFAULT_VOLUME)
+    }
+
+    /** Background music on or off. */
+    var musicOn by mutableStateOf(music.enabled)
+        private set
+
+    var musicVolume by mutableFloatStateOf(music.volume)
+        private set
 
     /** The tab on screen; kept here so that it survives rotation and a launch request can switch it. */
     var tab by mutableStateOf(Tab.MICROSCOPE)
@@ -270,7 +288,20 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     /** The world stands still while the app is in the background, and the dish and genome are saved. */
     fun onAppVisible(visible: Boolean) {
         runner.isPaused = !visible
+        music.setVisible(visible)
         if (!visible) autosave()
+    }
+
+    fun changeMusicOn(on: Boolean) {
+        musicOn = on
+        music.enabled = on
+        preferences.edit().putBoolean(KEY_MUSIC, on).apply()
+    }
+
+    fun changeMusicVolume(value: Float) {
+        musicVolume = value
+        music.volume = value
+        preferences.edit().putFloat(KEY_MUSIC_VOLUME, value).apply()
     }
 
     private fun autosave() {
@@ -514,6 +545,7 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
     }
 
     override fun onCleared() {
+        music.release()
         runner.close()
     }
 
@@ -524,6 +556,10 @@ class PetriViewModel(application: Application) : AndroidViewModel(application), 
         const val EXTRA_INSPECT = "petri.inspect"
         const val EXTRA_SPEED = "petri.speed"
         const val EXTRA_SPEEDS = "petri.speeds"
+
+        private const val PREFERENCES = "settings"
+        private const val KEY_MUSIC = "music"
+        private const val KEY_MUSIC_VOLUME = "music_volume"
 
         /** One press of «+» or «−» zooms by this much. */
         private const val ZOOM_STEP = 1.6f
